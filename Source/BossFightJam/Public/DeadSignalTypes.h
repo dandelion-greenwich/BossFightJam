@@ -40,8 +40,11 @@ enum class EHackType : uint8
 };
 
 /**
- * One player hack. Authored in the editor except for KeySequence, which is
- * regenerated every time the panel opens.
+ * One player hack, as authored in the editor.
+ *
+ * Pure data - the generated key sequence and all runtime state live in the
+ * hack component's parallel FHackRuntimeState array, so nothing writes back
+ * into designer-authored values.
  */
 USTRUCT(BlueprintType)
 struct FHackDefinition
@@ -65,8 +68,4 @@ struct FHackDefinition
 	/** How much this hack heals. Only read when Type == Heal. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hack", meta = (ClampMin = "0.0"))
 	float HealAmount = 30.f;
-
-	/** Regenerated at runtime on every panel open. Values are 1-4. */
-	UPROPERTY(BlueprintReadOnly, Category = "Hack")
-	TArray<int32> KeySequence;
 };

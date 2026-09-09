@@ -59,6 +59,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Encounter")
 	bool IsEncounterOver() const;
 
+	/** The registered boss, or null if it has not registered yet. Callers cast as needed. */
+	UFUNCTION(BlueprintPure, Category = "Encounter")
+	AActor* GetBossActor() const { return Boss; }
+
 	UPROPERTY(BlueprintAssignable, Category = "Encounter")
 	FOnEncounterStateChanged OnEncounterStateChanged;
 
@@ -87,10 +91,8 @@ protected:
 private:
 	UFUNCTION()
 	void HandlePlayerDeath();
-
 	UFUNCTION()
 	void HandleBossDeath();
-
 	void SetEncounterState(EEncounterState NewState);
 
 	/** Binds to an actor's health component if it has one. Returns the component, or null. */
