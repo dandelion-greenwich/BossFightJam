@@ -3,22 +3,48 @@
 #include "Damageable.h"
 #include "HealthComponent.h"
 #include "Camera/CameraComponent.h"
+#include "Components/MeshComponent.h"
 #include "Engine/World.h"
+#include "DrawDebugHelpers.h"
 
 UWeaponComponent::UWeaponComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
-void UWeaponComponent::Initialize(UCameraComponent* InCamera, USceneComponent* InGunMesh)
+void UWeaponComponent::BeginPlay()
 {
-	Camera = InCamera;
-	GunMesh = InGunMesh;
+	Super::BeginPlay();
+
+	AActor* Owner = GetOwner();
+	if (!Owner)
+	{
+		return;
+	}
+
+	// The camera belongs to the pawn, not to us. A first-person character has
+	// exactly one, so finding it beats making someone wire up a reference.
+	Camera = Owner->FindComponentByClass<UCameraComponent>();
 
 	if (!Camera)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[Weapon] Initialized without a camera - Fire will do nothing."));
+		UE_LOG(LogTemp, Warning,
+			TEXT("[Weapon] No camera component on %s - Fire will do nothing."),
+			*Owner->GetName());
 	}
+
+	// Resolved once here rather than per shot - the reference is a name lookup.
+	GunMesh = Cast<UMeshComponent>(GunMeshReference.GetComponent(Owner));
+}
+
+FVector UWeaponComponent::GetMuzzleLocation() const
+{
+	if (GunMesh && GunMesh->DoesSocketExist(MuzzleSocketName))
+	{
+		return GunMesh->GetSocketLocation(MuzzleSocketName);
+	}
+
+	return Camera ? Camera->GetComponentLocation() : FVector::ZeroVector;
 }
 
 bool UWeaponComponent::CanFire() const
@@ -75,6 +101,25 @@ bool UWeaponComponent::Fire()
 	FHitResult Hit;
 	const bool bHitSomething = GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params);
 
+#if ENABLE_DRAW_DEBUG
+	if (bDrawDebugTrace)
+	{
+		// Stops at the impact point, so the line shows what actually blocked the
+		// shot - useful when a projectile body-blocks one meant for the boss.
+		const FVector TraceEnd = bHitSomething ? Hit.ImpactPoint : End;
+		const FColor LineColour = bHitSomething ? FColor::Red : FColor::Green;
+
+		DrawDebugLine(GetWorld(), Start, TraceEnd, LineColour, false, DebugTraceDuration, 0, 1.f);
+
+		if (bHitSomething)
+		{
+			DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 12.f, 12, FColor::Yellow, false, DebugTraceDuration);
+			UE_LOG(LogTemp, Log, TEXT("[Weapon] Hit %s (component %s)"),
+				*GetNameSafe(Hit.GetActor()), *GetNameSafe(Hit.GetComponent()));
+		}
+	}
+#endif
+
 	float DamageDealt = 0.f;
 
 	if (bHitSomething)
@@ -91,19 +136,4 @@ bool UWeaponComponent::Fire()
 	OnFired(Hit, bHitSomething, DamageDealt);
 
 	return true;
-}
-
-FVector UWeaponComponent::GetMuzzleLocation() const
-{
-	if (GunMesh)
-	{
-		if (GunMesh->DoesSocketExist(MuzzleSocketName))
-		{
-			return GunMesh->GetSocketLocation(MuzzleSocketName);
-		}
-
-		return GunMesh->GetComponentLocation();
-	}
-
-	return Camera ? Camera->GetComponentLocation() : FVector::ZeroVector;
 }
