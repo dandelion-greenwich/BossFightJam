@@ -60,6 +60,17 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Health")
 	bool IsInvulnerable() const { return bIsInvulnerable; }
 
+	/**
+	 * Brief grace period after a hit lands. Entirely separate from
+	 * bIsInvulnerable so hack 3 can be activated, expire or toggle at any point
+	 * during an i-frame window without either clobbering the other.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Health")
+	bool IsInHitImmunity() const;
+
+	UFUNCTION(BlueprintPure, Category = "Health")
+	float GetRemainingHitImmunity() const;
+
 	/** 1.0 = full damage. The boss drops this while its shield is up. */
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	void SetDamageMultiplier(float NewMultiplier);
@@ -90,10 +101,22 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Health", meta = (ClampMin = "0.0"))
 	float DamageMultiplier = 1.f;
 
+	/**
+	 * Seconds of immunity granted after any hit lands. 0 disables it.
+	 *
+	 * Set to 0.5 on the player so a dense bullet pattern cannot delete them in
+	 * three frames. Left at 0 on the boss - i-frames there would silently cap
+	 * the player's DPS during the very window the fight is built around.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Health", meta = (ClampMin = "0.0"))
+	float HitImmunityDuration = 0.f;
+
 private:
 	UPROPERTY(VisibleInstanceOnly, Category = "Health", meta = (AllowPrivateAccess = "true"))
 	float CurrentHealth = 0.f;
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Health", meta = (AllowPrivateAccess = "true"))
 	bool bIsDead = false;
+
+	FTimerHandle HitImmunityTimer;
 };

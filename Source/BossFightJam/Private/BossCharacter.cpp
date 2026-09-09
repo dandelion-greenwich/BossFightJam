@@ -175,7 +175,7 @@ void ABossCharacter::EnterPhase(EBossPhase NewPhase)
 	bTransitioning = true;
 	GetWorldTimerManager().ClearTimer(TransitionTimer);
 	GetWorldTimerManager().SetTimer(TransitionTimer, this, &ABossCharacter::EndTransition,
-		FMath::Max(TransitionDuration, KINDA_SMALL_NUMBER), false);
+		FMath::Max(TransitionDuration, 0.001f), false);
 
 	UE_LOG(LogTemp, Log, TEXT("[Boss] Entered phase %d"), static_cast<int32>(NewPhase) + 1);
 }
@@ -183,6 +183,11 @@ void ABossCharacter::EnterPhase(EBossPhase NewPhase)
 void ABossCharacter::EndTransition()
 {
 	bTransitioning = false;
+}
+
+float ABossCharacter::ReceiveShot_Implementation(float Damage, AActor* DamageInstigator, const FHitResult& Hit)
+{
+	return Health ? Health->ApplyDamage(Damage, DamageInstigator) : 0.f;
 }
 
 bool ABossCharacter::CanAct() const

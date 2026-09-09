@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
 #include "DeadSignalTypes.h"
+#include "Damageable.h"
 #include "BossCharacter.generated.h"
 
 class UCapsuleComponent;
@@ -14,12 +15,16 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnShieldStateChanged, EShieldState,
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnStunChanged, bool, bStunned);
 
 UCLASS()
-class BOSSFIGHTJAM_API ABossCharacter : public APawn
+class BOSSFIGHTJAM_API ABossCharacter : public APawn, public IDamageable
 {
 	GENERATED_BODY()
 
 public:
 	ABossCharacter();
+
+	
+	// IDamageable. Forwards to the health component
+	virtual float ReceiveShot_Implementation(float Damage, AActor* DamageInstigator, const FHitResult& Hit) override;
 	
 	UFUNCTION(BlueprintCallable, Category = "Boss|Shield")
 	void DropShield(float Duration);

@@ -19,7 +19,9 @@ void UHealthComponent::BeginPlay()
 
 float UHealthComponent::ApplyDamage(float Amount, AActor* DamageInstigator)
 {
-	if (bIsDead || bIsInvulnerable || Amount <= 0.f)
+	// Two independent shields, either of which rejects the hit: the deliberate
+	// 5s ability, and the brief post-hit grace period.
+	if (bIsDead || bIsInvulnerable || IsInHitImmunity() || Amount <= 0.f)
 	{
 		return 0.f;
 	}
@@ -33,6 +35,16 @@ float UHealthComponent::ApplyDamage(float Amount, AActor* DamageInstigator)
 	// Never subtract more than is left, so the reported figure matches reality.
 	const float Applied = FMath::Min(Scaled, CurrentHealth);
 	CurrentHealth -= Applied;
+
+	// Immunity starts the moment a hit actually lands, so OnDamaged doubles as
+	// the "start the hit flash" signal - no extra delegate needed.
+	if (HitImmunityDuration > 0.f)
+	{
+		if (const UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().SetTimer(HitImmunityTimer, HitImmunityDuration, false);
+		}
+	}
 
 	OnDamaged.Broadcast(Applied, DamageInstigator);
 	OnHealthChanged.Broadcast(CurrentHealth, MaxHealth);
@@ -87,7 +99,29 @@ void UHealthComponent::ResetHealth()
 {
 	CurrentHealth = MaxHealth;
 	bIsDead = false;
+
+	if (const UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(HitImmunityTimer);
+	}
+
 	OnHealthChanged.Broadcast(CurrentHealth, MaxHealth);
+}
+
+bool UHealthComponent::IsInHitImmunity() const
+{
+	return GetRemainingHitImmunity() > 0.f;
+}
+
+float UHealthComponent::GetRemainingHitImmunity() const
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return 0.f;
+	}
+
+	return FMath::Max(0.f, World->GetTimerManager().GetTimerRemaining(HitImmunityTimer));
 }
 
 void UHealthComponent::SetDamageMultiplier(float NewMultiplier)

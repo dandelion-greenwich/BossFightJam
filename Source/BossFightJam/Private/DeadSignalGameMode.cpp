@@ -98,7 +98,7 @@ void ADeadSignalGameMode::HandlePlayerDeath()
 	{
 		OnDefeat();
 	});
-	GetWorldTimerManager().SetTimer(EndScreenTimer, Delegate, FMath::Max(EndScreenDelay, KINDA_SMALL_NUMBER), false);
+	GetWorldTimerManager().SetTimer(EndScreenTimer, Delegate, FMath::Max(EndScreenDelay, 0.001f), false);
 }
 
 void ADeadSignalGameMode::HandleBossDeath()
@@ -115,7 +115,7 @@ void ADeadSignalGameMode::HandleBossDeath()
 	{
 		OnVictory();
 	});
-	GetWorldTimerManager().SetTimer(EndScreenTimer, Delegate, FMath::Max(EndScreenDelay, KINDA_SMALL_NUMBER), false);
+	GetWorldTimerManager().SetTimer(EndScreenTimer, Delegate, FMath::Max(EndScreenDelay, 0.001f), false);
 }
 
 void ADeadSignalGameMode::SetEncounterState(EEncounterState NewState)
