@@ -11,6 +11,7 @@ class UMeshComponent;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAmmoChanged, int32, CurrentAmmo, int32, MagazineSize);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnReloadStarted, float, Duration);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnReloadFinished);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnFiredEmpty);
 
 UCLASS(ClassGroup = (DeadSignal), meta = (BlueprintSpawnableComponent))
 class BOSSFIGHTJAM_API UWeaponComponent : public UActorComponent
@@ -63,6 +64,10 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Weapon|Ammo")
 	FOnReloadFinished OnReloadFinished;
+
+	/** Broadcast alongside the OnFireFailedEmpty event, for listeners off the weapon. */
+	UPROPERTY(BlueprintAssignable, Category = "Weapon|Ammo")
+	FOnFiredEmpty OnFiredEmpty;
 
 protected:
 	virtual void BeginPlay() override;

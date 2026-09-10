@@ -102,6 +102,7 @@ bool UWeaponComponent::Fire()
 	if (CurrentAmmo <= 0)
 	{
 		OnFireFailedEmpty();
+		OnFiredEmpty.Broadcast();
 
 		if (bAutoReloadWhenEmpty)
 		{
