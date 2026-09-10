@@ -100,7 +100,7 @@ protected:
 	TObjectPtr<UCapsuleComponent> Capsule;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Boss")
-	TObjectPtr<USkeletalMeshComponent> Mesh;
+	TObjectPtr<UStaticMeshComponent> Mesh;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Boss")
 	TObjectPtr<UHealthComponent> Health;

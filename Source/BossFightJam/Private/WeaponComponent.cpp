@@ -127,8 +127,8 @@ bool UWeaponComponent::Fire()
 	// From the camera, not the muzzle - what the crosshair covers is what gets hit.
 	const FVector Start = Camera->GetComponentLocation();
 	const FVector End = Start + Camera->GetForwardVector() * Range;
-
-	FCollisionQueryParams Params(SCENE_QUERY_STAT(WeaponFire), /*bTraceComplex=*/true);
+	
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(WeaponFire), false);
 	Params.AddIgnoredActor(GetOwner());
 
 	// LineTraceSingle returns the first blocking hit, which is exactly the

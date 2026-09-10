@@ -13,9 +13,13 @@ ABossCharacter::ABossCharacter()
 	Capsule = CreateDefaultSubobject<UCapsuleComponent>(TEXT("Capsule"));
 	Capsule->SetCapsuleSize(120.f, 250.f);
 	Capsule->SetCollisionProfileName(TEXT("Pawn"));
+
+	// For weapon detection
+	Capsule->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+
 	RootComponent = Capsule;
 
-	Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Mesh"));
+	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
 	Mesh->SetupAttachment(Capsule);
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
