@@ -8,6 +8,10 @@
 class UCameraComponent;
 class UMeshComponent;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAmmoChanged, int32, CurrentAmmo, int32, MagazineSize);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnReloadStarted, float, Duration);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnReloadFinished);
+
 UCLASS(ClassGroup = (DeadSignal), meta = (BlueprintSpawnableComponent))
 class BOSSFIGHTJAM_API UWeaponComponent : public UActorComponent
 {
@@ -28,6 +32,37 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category = "Weapon")
 	FVector GetMuzzleLocation() const;
+	
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Ammo")
+	bool Reload();
+
+	UFUNCTION(BlueprintPure, Category = "Weapon|Ammo")
+	bool CanReload() const;
+
+	UFUNCTION(BlueprintPure, Category = "Weapon|Ammo")
+	int32 GetCurrentAmmo() const { return CurrentAmmo; }
+
+	UFUNCTION(BlueprintPure, Category = "Weapon|Ammo")
+	int32 GetMagazineSize() const { return MagazineSize; }
+
+	UFUNCTION(BlueprintPure, Category = "Weapon|Ammo")
+	bool IsMagazineEmpty() const { return CurrentAmmo <= 0; }
+
+	UFUNCTION(BlueprintPure, Category = "Weapon|Ammo")
+	bool IsReloading() const { return bIsReloading; }
+
+	/** 0 to 1 through the current reload, for a progress bar. 0 when not reloading. */
+	UFUNCTION(BlueprintPure, Category = "Weapon|Ammo")
+	float GetReloadProgress() const;
+
+	UPROPERTY(BlueprintAssignable, Category = "Weapon|Ammo")
+	FOnAmmoChanged OnAmmoChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "Weapon|Ammo")
+	FOnReloadStarted OnReloadStarted;
+
+	UPROPERTY(BlueprintAssignable, Category = "Weapon|Ammo")
+	FOnReloadFinished OnReloadFinished;
 
 protected:
 	virtual void BeginPlay() override;
@@ -36,13 +71,16 @@ protected:
 		meta = (UseComponentPicker, AllowedClasses = "/Script/Engine.MeshComponent"))
 	FComponentReference GunMeshReference;
 
-	//S ocket on the gun mesh that muzzle FX originate from.
+	// Socket on the gun mesh that muzzle FX originate from.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	FName MuzzleSocketName = TEXT("Muzzle");
 
 	// Everything visual - muzzle flash, tracer, impact decal, recoil, sound.
 	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon")
 	void OnFired(const FHitResult& Hit, bool bHitSomething, float DamageDealt);
+	
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon")
+	void OnFireFailedEmpty();
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon", meta = (ClampMin = "0.0"))
 	float Damage = 25.f;
@@ -52,6 +90,15 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon", meta = (ClampMin = "0.0"))
 	float FireInterval = 0.12f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Ammo", meta = (ClampMin = "1"))
+	int32 MagazineSize = 12;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Ammo", meta = (ClampMin = "0.0"))
+	float ReloadDuration = 1.5f;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon|Ammo")
+	bool bAutoReloadWhenEmpty = false;
 
 	/** Draws every shot in the world: green missed, red hit, sphere at impact. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Debug")
@@ -68,4 +115,13 @@ private:
 
 	// Starts long enough ago that the very first shot always passes the rate gate
 	float LastFireTime = -1000.f;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Weapon|Ammo", meta = (AllowPrivateAccess = "true"))
+	int32 CurrentAmmo = 0;
+
+	bool bIsReloading = false;
+
+	FTimerHandle ReloadTimer;
+
+	void FinishReload();
 };

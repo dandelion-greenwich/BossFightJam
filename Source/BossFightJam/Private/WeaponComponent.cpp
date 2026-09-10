@@ -35,6 +35,9 @@ void UWeaponComponent::BeginPlay()
 
 	// Resolved once here rather than per shot - the reference is a name lookup.
 	GunMesh = Cast<UMeshComponent>(GunMeshReference.GetComponent(Owner));
+
+	CurrentAmmo = MagazineSize;
+	OnAmmoChanged.Broadcast(CurrentAmmo, MagazineSize);
 }
 
 FVector UWeaponComponent::GetMuzzleLocation() const
@@ -50,6 +53,11 @@ FVector UWeaponComponent::GetMuzzleLocation() const
 bool UWeaponComponent::CanFire() const
 {
 	if (!Camera || !GetWorld())
+	{
+		return false;
+	}
+
+	if (bIsReloading)
 	{
 		return false;
 	}
@@ -87,7 +95,24 @@ bool UWeaponComponent::Fire()
 		return false;
 	}
 
+	// Stamped before the empty check so holding the trigger on an empty
+	// magazine dry-clicks at the fire rate rather than once per frame.
 	LastFireTime = GetWorld()->GetTimeSeconds();
+
+	if (CurrentAmmo <= 0)
+	{
+		OnFireFailedEmpty();
+
+		if (bAutoReloadWhenEmpty)
+		{
+			Reload();
+		}
+
+		return false;
+	}
+
+	--CurrentAmmo;
+	OnAmmoChanged.Broadcast(CurrentAmmo, MagazineSize);
 
 	// From the camera, not the muzzle - what the crosshair covers is what gets hit.
 	const FVector Start = Camera->GetComponentLocation();
@@ -136,4 +161,56 @@ bool UWeaponComponent::Fire()
 	OnFired(Hit, bHitSomething, DamageDealt);
 
 	return true;
+}
+
+// ---------------------------------------------------------------- Ammo
+
+bool UWeaponComponent::CanReload() const
+{
+	return !bIsReloading && CurrentAmmo < MagazineSize;
+}
+
+bool UWeaponComponent::Reload()
+{
+	if (!CanReload() || !GetWorld())
+	{
+		return false;
+	}
+
+	bIsReloading = true;
+	OnReloadStarted.Broadcast(ReloadDuration);
+
+	// A zero duration would never fire a timer, so finish immediately instead.
+	if (ReloadDuration <= 0.f)
+	{
+		FinishReload();
+		return true;
+	}
+
+	GetWorld()->GetTimerManager().SetTimer(ReloadTimer, this,
+		&UWeaponComponent::FinishReload, ReloadDuration, false);
+
+	return true;
+}
+
+void UWeaponComponent::FinishReload()
+{
+	bIsReloading = false;
+
+	// Always a full magazine - there is no reserve to run dry.
+	CurrentAmmo = MagazineSize;
+
+	OnAmmoChanged.Broadcast(CurrentAmmo, MagazineSize);
+	OnReloadFinished.Broadcast();
+}
+
+float UWeaponComponent::GetReloadProgress() const
+{
+	if (!bIsReloading || ReloadDuration <= 0.f || !GetWorld())
+	{
+		return 0.f;
+	}
+
+	const float Remaining = GetWorld()->GetTimerManager().GetTimerRemaining(ReloadTimer);
+	return FMath::Clamp(1.f - (Remaining / ReloadDuration), 0.f, 1.f);
 }
