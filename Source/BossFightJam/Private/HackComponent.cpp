@@ -4,6 +4,7 @@
 #include "HealthComponent.h"
 #include "DeadSignalGameMode.h"
 #include "Kismet/GameplayStatics.h"
+#include "Engine/Engine.h"
 
 UHackComponent::UHackComponent()
 {
@@ -207,13 +208,10 @@ void UHackComponent::ActivateHack(int32 Index)
 	FHackRuntimeState& State = Runtime[Index];
 
 	ApplyHackEffect(Hack);
-	ClearInput();
 
-	OnHackActivated.Broadcast(Hack.Type, Index);
-
-	UE_LOG(LogTemp, Log, TEXT("[Hacks] Activated %s (index %d)"),
-		*UEnum::GetValueAsString(Hack.Type), Index);
-
+	// State is set BEFORE anything broadcasts. ClearInput and OnHackActivated
+	// both cause listeners to re-read this hack, and if bActive were still
+	// false at that point the UI would briefly show the row as idle.
 	if (Hack.Duration > 0.f)
 	{
 		State.bActive = true;
@@ -222,10 +220,31 @@ void UHackComponent::ActivateHack(int32 Index)
 		Expire.BindWeakLambda(this, [this, Index]() { HandleHackExpired(Index); });
 		GetWorld()->GetTimerManager().SetTimer(State.DurationTimer, Expire, Hack.Duration, false);
 	}
-	else
+
+	ClearInput();
+
+	OnHackActivated.Broadcast(Hack.Type, Index);
+
+	UE_LOG(LogTemp, Log, TEXT("[Hacks] t=%.2f  ACTIVATED index %d %s (dur %.1fs, cd %.1fs)"),
+		GetWorld()->GetTimeSeconds(), Index, *UEnum::GetValueAsString(Hack.Type),
+		Hack.Duration, Hack.Cooldown);
+
+#if !UE_BUILD_SHIPPING
+	if (bShowDebugMessages && GEngine)
 	{
-		// Instant hacks such as Heal have nothing to expire, so their cooldown
-		// starts right away rather than after a zero-length duration.
+		const FString Name = Hack.DisplayName.IsEmpty()
+			? UEnum::GetDisplayValueAsText(Hack.Type).ToString()
+			: Hack.DisplayName.ToString();
+
+		GEngine->AddOnScreenDebugMessage(-1, 4.f, FColor::Cyan,
+			FString::Printf(TEXT("HACK %d: %s  (%.1fs / CD %.1fs)"),
+				Index + 1, *Name, Hack.Duration, Hack.Cooldown));
+	}
+#endif
+
+	// Instant hacks such as Heal have nothing to expire
+	if (Hack.Duration <= 0.f)
+	{
 		HandleHackExpired(Index);
 	}
 }
@@ -244,13 +263,23 @@ void UHackComponent::HandleHackExpired(int32 Index)
 	{
 		State.bActive = false;
 		RemoveHackEffect(Hack);
+
+		UE_LOG(LogTemp, Log, TEXT("[Hacks] t=%.2f  EXPIRED index %d (duration was %.1fs)"),
+			GetWorld()->GetTimeSeconds(), Index, Hack.Duration);
+
 		OnHackExpired.Broadcast(Hack.Type, Index);
 	}
 
 	// The cooldown clock starts here rather than
 	// at activation, so an active hack does not burn its own downtime
+	// The duration handle is spent - drop it so nothing can read a stale value
+	// off a slot the timer manager may reuse.
+	State.DurationTimer.Invalidate();
+
 	if (Hack.Cooldown > 0.f)
 	{
+		State.bOnCooldown = true;
+
 		FTimerDelegate Ready;
 		Ready.BindWeakLambda(this, [this, Index]() { HandleCooldownFinished(Index); });
 		GetWorld()->GetTimerManager().SetTimer(State.CooldownTimer, Ready, Hack.Cooldown, false);
@@ -263,6 +292,15 @@ void UHackComponent::HandleCooldownFinished(int32 Index)
 	{
 		return;
 	}
+
+	// Cleared before the broadcast. Listeners refresh in response, and the
+	// timer that just fired does not reliably report as expired from inside
+	// its own callback.
+	Runtime[Index].bOnCooldown = false;
+	Runtime[Index].CooldownTimer.Invalidate();
+
+	UE_LOG(LogTemp, Log, TEXT("[Hacks] t=%.2f  COOLDOWN OVER index %d"),
+		GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f, Index);
 
 	OnCooldownFinished.Broadcast(Hacks[Index].Type, Index);
 }
@@ -366,12 +404,17 @@ bool UHackComponent::IsHackActive(int32 Index) const
 
 bool UHackComponent::IsOnCooldown(int32 Index) const
 {
-	return GetRemainingCooldown(Index) > 0.f;
+	return IsValidIndex(Index) && Runtime[Index].bOnCooldown;
 }
 
 float UHackComponent::GetRemainingCooldown(int32 Index) const
 {
 	if (!IsValidIndex(Index) || !GetWorld())
+	{
+		return 0.f;
+	}
+
+	if (!Runtime[Index].bOnCooldown)
 	{
 		return 0.f;
 	}
@@ -382,6 +425,11 @@ float UHackComponent::GetRemainingCooldown(int32 Index) const
 float UHackComponent::GetRemainingDuration(int32 Index) const
 {
 	if (!IsValidIndex(Index) || !GetWorld())
+	{
+		return 0.f;
+	}
+
+	if (!Runtime[Index].bActive)
 	{
 		return 0.f;
 	}

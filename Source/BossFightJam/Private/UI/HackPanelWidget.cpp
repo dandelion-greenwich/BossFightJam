@@ -1,6 +1,9 @@
 #include "UI/HackPanelWidget.h"
 
 #include "HackComponent.h"
+#include "UI/HackRowWidget.h"
+#include "UI/HackKeyWidget.h"
+#include "Components/PanelWidget.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 
@@ -12,7 +15,20 @@ void UHackPanelWidget::NativeConstruct()
 
 	if (HackComponent)
 	{
+		BuildRows();
 		OnPanelReady();
+	}
+}
+
+void UHackPanelWidget::NativePreConstruct()
+{
+	Super::NativePreConstruct();
+
+	// Designer only. At runtime NativeConstruct clears these and builds the
+	// real rows from the component, so no preview state survives into play.
+	if (IsDesignTime())
+	{
+		BuildPreviewRows();
 	}
 }
 
@@ -94,7 +110,20 @@ EHackRowState UHackPanelWidget::GetRowState(int32 Index) const
 
 int32 UHackPanelWidget::GetHighlightedKeyCount(int32 Index) const
 {
-	if (!HackComponent || !HackComponent->IsHackViable(Index))
+	if (!HackComponent)
+	{
+		return 0;
+	}
+
+	// A hack that just fired keeps its whole sequence lit while it runs and
+	// cools down, so the row still reads as "this is the one you used" after
+	// the input buffer has been cleared.
+	if (HackComponent->IsHackActive(Index) || HackComponent->IsOnCooldown(Index))
+	{
+		return HackComponent->GetKeySequence(Index).Num();
+	}
+
+	if (!HackComponent->IsHackViable(Index))
 	{
 		return 0;
 	}
@@ -169,30 +198,134 @@ void UHackPanelWidget::HandlePanelToggled(bool bIsOpen)
 
 void UHackPanelWidget::HandlePatternsRegenerated()
 {
+	// New sequences mean new key glyphs, so the rows are rebuilt rather than
+	// just refreshed.
+	BuildRows();
 	OnPatternsChanged();
 }
 
 void UHackPanelWidget::HandleInputChanged()
 {
+	RefreshAllRows();
 	OnInputChanged();
 }
 
 void UHackPanelWidget::HandleHackFailed()
 {
+	RefreshAllRows();
 	OnHackFailed();
 }
 
 void UHackPanelWidget::HandleHackActivated(EHackType Type, int32 Index)
 {
+	RefreshAllRows();
 	OnHackActivated(Type, Index);
 }
 
 void UHackPanelWidget::HandleHackExpired(EHackType Type, int32 Index)
 {
+	RefreshAllRows();
 	OnHackExpired(Type, Index);
 }
 
 void UHackPanelWidget::HandleCooldownFinished(EHackType Type, int32 Index)
 {
+	RefreshAllRows();
 	OnCooldownFinished(Type, Index);
+}
+
+// ---------------------------------------------------------------- Rows
+
+void UHackPanelWidget::BuildRows()
+{
+	if (!RowContainer || !RowWidgetClass || !HackComponent)
+	{
+		return;
+	}
+
+	// Only our own rows are removed, so anything hand-placed in the container
+	// survives a rebuild.
+	for (UHackRowWidget* Existing : RowWidgets)
+	{
+		if (Existing)
+		{
+			Existing->RemoveFromParent();
+		}
+	}
+	RowWidgets.Reset();
+
+	const int32 Count = HackComponent->GetHackCount();
+	for (int32 i = 0; i < Count; ++i)
+	{
+		UHackRowWidget* Row = CreateWidget<UHackRowWidget>(this, RowWidgetClass);
+		if (!Row)
+		{
+			continue;
+		}
+
+		RowContainer->AddChild(Row);
+		Row->SetupRow(i, HackComponent->GetHackDefinition(i), HackComponent->GetKeySequence(i), KeyWidgetClass);
+		RowWidgets.Add(Row);
+	}
+
+	RefreshAllRows();
+}
+
+void UHackPanelWidget::RefreshAllRows()
+{
+	for (int32 i = 0; i < RowWidgets.Num(); ++i)
+	{
+		if (!RowWidgets[i])
+		{
+			continue;
+		}
+
+		RowWidgets[i]->Refresh(GetRowState(i), GetHighlightedKeyCount(i),
+			GetCooldownProgress(i), GetActiveProgress(i));
+	}
+}
+
+void UHackPanelWidget::BuildPreviewRows()
+{
+	if (!RowContainer || !RowWidgetClass)
+	{
+		return;
+	}
+
+	for (UHackRowWidget* Existing : RowWidgets)
+	{
+		if (Existing)
+		{
+			Existing->RemoveFromParent();
+		}
+	}
+	RowWidgets.Reset();
+
+	// Dummy keys cycling 1-4, purely so the designer has something to size against.
+	TArray<int32> PreviewKeys;
+	PreviewKeys.Reserve(PreviewSequenceLength);
+	for (int32 k = 0; k < PreviewSequenceLength; ++k)
+	{
+		PreviewKeys.Add((k % 4) + 1);
+	}
+
+	for (int32 i = 0; i < PreviewRowCount; ++i)
+	{
+		UHackRowWidget* Row = CreateWidget<UHackRowWidget>(this, RowWidgetClass);
+		if (!Row)
+		{
+			continue;
+		}
+
+		FHackDefinition Preview;
+		Preview.DisplayName = FText::FromString(FString::Printf(TEXT("Hack %d"), i + 1));
+
+		RowContainer->AddChild(Row);
+		Row->SetupRow(i, Preview, PreviewKeys, KeyWidgetClass);
+		Row->Refresh(EHackRowState::Available, 0, 0.f, 0.f);
+
+		// Tracked like real rows, so the next PreConstruct replaces them
+		// instead of stacking another set underneath.
+		RowWidgets.Add(Row);
+	}
 }

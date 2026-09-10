@@ -16,11 +16,6 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHackActivated, EHackType, Type, 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHackExpired, EHackType, Type, int32, Index);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnCooldownFinished, EHackType, Type, int32, Index);
 
-/**
- * Runtime state for one hack. Kept parallel to the authored Hacks array so
- * nothing writes back into designer-authored values. Sized once in BeginPlay,
- * so the two arrays cannot desync.
- */
 USTRUCT()
 struct FHackRuntimeState
 {
@@ -31,20 +26,13 @@ struct FHackRuntimeState
 	TArray<int32> KeySequence;
 
 	bool bActive = false;
+	
+	bool bOnCooldown = false;
 
 	FTimerHandle DurationTimer;
 	FTimerHandle CooldownTimer;
 };
 
-/**
- * The player's hack panel: four abilities behind generated key combinations.
- *
- * Lives on the player pawn. Receives input by forwarding only - the pawn binds
- * Tab and 1-4 and calls TogglePanel / SubmitKey - so the whole flow can be
- * driven from a console command or a test with no keyboard involved.
- *
- * Opening the panel does not pause the fight.
- */
 UCLASS(ClassGroup = (DeadSignal), meta = (BlueprintSpawnableComponent))
 class BOSSFIGHTJAM_API UHackComponent : public UActorComponent
 {
@@ -131,6 +119,10 @@ protected:
 	/** The four hacks, authored in the editor. Order is the panel order. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hacks")
 	TArray<FHackDefinition> Hacks;
+
+	/** Prints which hack fired to the screen. Compiled out of shipping builds. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Hacks|Debug")
+	bool bShowDebugMessages = true;
 
 	/** Keys per generated sequence. A difficulty dial - longer costs damage uptime. */
 	UPROPERTY(EditDefaultsOnly, Category = "Hacks", meta = (ClampMin = "1", ClampMax = "6"))

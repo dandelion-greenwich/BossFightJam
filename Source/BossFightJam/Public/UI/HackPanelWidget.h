@@ -6,6 +6,9 @@
 #include "HackPanelWidget.generated.h"
 
 class UHackComponent;
+class UPanelWidget;
+class UHackRowWidget;
+class UHackKeyWidget;
 
 /** What one row of the panel should look like right now. */
 UENUM(BlueprintType)
@@ -71,6 +74,29 @@ public:
 protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
+	virtual void NativePreConstruct() override;
+
+	/** Required - rows are spawned into this. */
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "Hacks|Panel")
+	TObjectPtr<UPanelWidget> RowContainer;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Hacks|Panel")
+	TSubclassOf<UHackRowWidget> RowWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Hacks|Panel")
+	TSubclassOf<UHackKeyWidget> KeyWidgetClass;
+
+	/**
+	 * Placeholder rows drawn in the UMG designer only. Rows are spawned at
+	 * runtime, so without these the container would be an empty box and there
+	 * would be nothing to lay out against.
+	 */
+	UPROPERTY(EditDefaultsOnly, Category = "Hacks|Panel|Preview", meta = (ClampMin = "0", ClampMax = "8"))
+	int32 PreviewRowCount = 4;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Hacks|Panel|Preview", meta = (ClampMin = "1", ClampMax = "8"))
+	int32 PreviewSequenceLength = 5;
+
 
 	/**
 	 * Rebuild the rows here. Called once the hack component is bound, and again
@@ -105,6 +131,17 @@ private:
 	/** Finds the hack component on the owning pawn and binds every delegate. */
 	void BindToHackComponent();
 
+	/** Clears and respawns every row. Runs on bind, and again on regeneration. */
+	void BuildRows();
+
+	/**
+	 * Pushes current state into every row. Wired to every event that can change
+	 * one, so there is no branch left to forget.
+	 */
+	void RefreshAllRows();
+
+	void BuildPreviewRows();
+
 	UFUNCTION()
 	void HandlePanelToggled(bool bIsOpen);
 
@@ -128,4 +165,7 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UHackComponent> HackComponent;
+
+	UPROPERTY()
+	TArray<TObjectPtr<UHackRowWidget>> RowWidgets;
 };
