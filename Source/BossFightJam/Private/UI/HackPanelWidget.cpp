@@ -17,6 +17,10 @@ void UHackPanelWidget::NativeConstruct()
 	{
 		BuildRows();
 		OnPanelReady();
+
+		// OnPanelOpenChanged otherwise only fires on a toggle, so without this
+		// the panel would sit visible until the player pressed Tab twice.
+		OnPanelOpenChanged(HackComponent->IsPanelOpen());
 	}
 }
 

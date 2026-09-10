@@ -17,6 +17,9 @@ void UHackComponent::BeginPlay()
 
 	// Sized once from the authored array, so indices can never desync.
 	Runtime.SetNum(Hacks.Num());
+
+	// Generated up front so a panel built before the first open
+	RegeneratePatterns();
 }
 
 // ---------------------------------------------------------------- Panel
@@ -220,6 +223,12 @@ void UHackComponent::ActivateHack(int32 Index)
 		Expire.BindWeakLambda(this, [this, Index]() { HandleHackExpired(Index); });
 		GetWorld()->GetTimerManager().SetTimer(State.DurationTimer, Expire, Hack.Duration, false);
 	}
+	else
+	{
+		// Instant hacks such as Heal have nothing to expire, so their cooldown starts here
+		
+		HandleHackExpired(Index);
+	}
 
 	ClearInput();
 
@@ -241,12 +250,6 @@ void UHackComponent::ActivateHack(int32 Index)
 				Index + 1, *Name, Hack.Duration, Hack.Cooldown));
 	}
 #endif
-
-	// Instant hacks such as Heal have nothing to expire
-	if (Hack.Duration <= 0.f)
-	{
-		HandleHackExpired(Index);
-	}
 }
 
 void UHackComponent::HandleHackExpired(int32 Index)
@@ -259,23 +262,25 @@ void UHackComponent::HandleHackExpired(int32 Index)
 	const FHackDefinition& Hack = Hacks[Index];
 	FHackRuntimeState& State = Runtime[Index];
 
-	if (State.bActive)
-	{
-		State.bActive = false;
-		RemoveHackEffect(Hack);
+	const bool bWasActive = State.bActive;
 
-		UE_LOG(LogTemp, Log, TEXT("[Hacks] t=%.2f  EXPIRED index %d (duration was %.1fs)"),
-			GetWorld()->GetTimeSeconds(), Index, Hack.Duration);
+	State.bActive = false;
 
-		OnHackExpired.Broadcast(Hack.Type, Index);
-	}
-
-	// The cooldown clock starts here rather than
-	// at activation, so an active hack does not burn its own downtime
 	// The duration handle is spent - drop it so nothing can read a stale value
 	// off a slot the timer manager may reuse.
 	State.DurationTimer.Invalidate();
 
+	if (bWasActive)
+	{
+		RemoveHackEffect(Hack);
+	}
+
+	// The cooldown starts here rather than at activation, so an active hack
+	// does not burn its own downtime.
+	//
+	// Critically this happens BEFORE the broadcast: listeners refresh in
+	// response, and if bOnCooldown were still false they would briefly see the
+	// hack as available and paint it idle until the next unrelated event.
 	if (Hack.Cooldown > 0.f)
 	{
 		State.bOnCooldown = true;
@@ -283,6 +288,14 @@ void UHackComponent::HandleHackExpired(int32 Index)
 		FTimerDelegate Ready;
 		Ready.BindWeakLambda(this, [this, Index]() { HandleCooldownFinished(Index); });
 		GetWorld()->GetTimerManager().SetTimer(State.CooldownTimer, Ready, Hack.Cooldown, false);
+	}
+
+	if (bWasActive)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[Hacks] t=%.2f  EXPIRED index %d (duration was %.1fs)"),
+			GetWorld()->GetTimeSeconds(), Index, Hack.Duration);
+
+		OnHackExpired.Broadcast(Hack.Type, Index);
 	}
 }
 
