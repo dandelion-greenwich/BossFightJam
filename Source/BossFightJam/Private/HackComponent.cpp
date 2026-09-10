@@ -374,6 +374,40 @@ void UHackComponent::RemoveHackEffect(const FHackDefinition& Hack)
 	}
 }
 
+#if !UE_BUILD_SHIPPING
+void UHackComponent::DebugResetCooldowns()
+{
+	if (!GetWorld())
+	{
+		return;
+	}
+
+	for (int32 i = 0; i < Runtime.Num(); ++i)
+	{
+		FHackRuntimeState& State = Runtime[i];
+
+		// Effects are removed properly rather than just cleared, or a reset
+		// during Player Shield would leave the player permanently invulnerable.
+		if (State.bActive && Hacks.IsValidIndex(i))
+		{
+			RemoveHackEffect(Hacks[i]);
+		}
+
+		GetWorld()->GetTimerManager().ClearTimer(State.DurationTimer);
+		GetWorld()->GetTimerManager().ClearTimer(State.CooldownTimer);
+		State.DurationTimer.Invalidate();
+		State.CooldownTimer.Invalidate();
+
+		State.bActive = false;
+		State.bOnCooldown = false;
+	}
+
+	ClearInput();
+
+	UE_LOG(LogTemp, Log, TEXT("[Hacks] Debug reset - all hacks available."));
+}
+#endif
+
 // Queries
 
 FHackDefinition UHackComponent::GetHackDefinition(int32 Index) const

@@ -63,6 +63,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Boss")
 	UHealthComponent* GetHealthComponent() const { return Health; }
 
+#if !UE_BUILD_SHIPPING
+	// Debug only 
+	void DebugSetPhase(EBossPhase NewPhase);
+#endif
+
 	UPROPERTY(BlueprintAssignable, Category = "Boss|Phase")
 	FOnPhaseChanged OnPhaseChanged;
 

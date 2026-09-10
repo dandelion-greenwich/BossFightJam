@@ -92,6 +92,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Hacks")
 	float GetRemainingDuration(int32 Index) const;
 
+#if !UE_BUILD_SHIPPING
+	// Debug only 
+	void DebugResetCooldowns();
+#endif
+
 	UPROPERTY(BlueprintAssignable, Category = "Hacks")
 	FOnPanelToggled OnPanelToggled;
 

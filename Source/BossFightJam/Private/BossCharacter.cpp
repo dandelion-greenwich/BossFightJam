@@ -190,6 +190,16 @@ float ABossCharacter::ReceiveShot_Implementation(float Damage, AActor* DamageIns
 	return Health ? Health->ApplyDamage(Damage, DamageInstigator) : 0.f;
 }
 
+#if !UE_BUILD_SHIPPING
+void ABossCharacter::DebugSetPhase(EBossPhase NewPhase)
+{
+	if (NewPhase != CurrentPhase)
+	{
+		EnterPhase(NewPhase);
+	}
+}
+#endif
+
 bool ABossCharacter::CanAct() const
 {
 	return !bStunned
