@@ -2,6 +2,7 @@
 
 #include "Damageable.h"
 #include "HealthComponent.h"
+#include "HackComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/MeshComponent.h"
 #include "Engine/World.h"
@@ -36,6 +37,8 @@ void UWeaponComponent::BeginPlay()
 	// Resolved once here rather than per shot - the reference is a name lookup.
 	GunMesh = Cast<UMeshComponent>(GunMeshReference.GetComponent(Owner));
 
+	HackComponent = Owner->FindComponentByClass<UHackComponent>();
+
 	CurrentAmmo = MagazineSize;
 	OnAmmoChanged.Broadcast(CurrentAmmo, MagazineSize);
 }
@@ -58,6 +61,12 @@ bool UWeaponComponent::CanFire() const
 	}
 
 	if (bIsReloading)
+	{
+		return false;
+	}
+
+	// Either shoot or hack, player can't do both
+	if (HackComponent && HackComponent->IsPanelOpen())
 	{
 		return false;
 	}

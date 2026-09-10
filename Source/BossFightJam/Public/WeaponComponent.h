@@ -7,6 +7,7 @@
 
 class UCameraComponent;
 class UMeshComponent;
+class UHackComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAmmoChanged, int32, CurrentAmmo, int32, MagazineSize);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnReloadStarted, float, Duration);
@@ -117,6 +118,9 @@ private:
 	TObjectPtr<UCameraComponent> Camera;
 	UPROPERTY()
 	TObjectPtr<UMeshComponent> GunMesh;
+
+	UPROPERTY()
+	TObjectPtr<UHackComponent> HackComponent;
 
 	// Starts long enough ago that the very first shot always passes the rate gate
 	float LastFireTime = -1000.f;
