@@ -255,6 +255,10 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Boss|Attacks")
 	void OnLaserFinished();
 
+	/** The boss just moved. Play the warp effect at both ends here. */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Boss|Teleport")
+	void OnTeleported(const FVector& From, const FVector& To);
+
 	/** Fires once the whole phase order has been run, before it loops. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Boss|Attacks")
 	void OnSequenceCompleted(EBossPhase Phase);
@@ -268,6 +272,17 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boss|Attacks")
 	TArray<FBossAttackStep> Phase3Sequence;
+	
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "Boss|Teleport")
+	TArray<TObjectPtr<AActor>> TeleportAnchors;
+
+	/** Turn to face the player continuously. Yaw only - the boss never tilts. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Boss|Facing")
+	bool bFacePlayer = true;
+
+	/** Degrees per second. Low enough and a strafing player can outrun its aim. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Boss|Facing", meta = (ClampMin = "1.0"))
+	float FacingTurnRate = 180.f;
 
 	/** Pooled and reused for every bullet the boss fires. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boss|Attacks")
@@ -357,6 +372,17 @@ private:
 
 	void StopLaserSweep();
 
+	/** Spreads Intensity teleports evenly across the step's Duration. */
+	void BeginTeleportAttack();
+
+	/** Moves to a random anchor that is not the current one. */
+	void DoTeleport();
+
+	void StopTeleportAttack();
+
+	/** Yaw-only turn toward the player at FacingTurnRate. */
+	void TickFacing(float DeltaTime);
+
 	/** The step currently emitting, copied so the sequence can move on safely. */
 	FBossAttackStep PatternStep;
 	bool bPatternFiring = false;
@@ -379,6 +405,17 @@ private:
 	float LaserPitch = -90.f;
 
 	FTimerHandle LaserIntervalTimer;
+
+	/** Cached so facing does not look the game mode up every frame. */
+	EEncounterState CachedEncounterState = EEncounterState::Intro;
+
+	int32 TeleportsRemaining = 0;
+	float TeleportInterval = 0.f;
+
+	/** Which anchor the boss is standing on, so it never picks the same one. */
+	int32 CurrentAnchorIndex = INDEX_NONE;
+
+	FTimerHandle TeleportTimer;
 
 	bool bTransitioning = false;
 	bool bStunned = false;

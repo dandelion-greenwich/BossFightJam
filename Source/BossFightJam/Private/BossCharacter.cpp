@@ -12,9 +12,8 @@
 
 ABossCharacter::ABossCharacter()
 {
-	// Enabled only while a laser is sweeping; everything else runs on timers.
+	// Ticks for facing player and laser sweep,  everything else runs on timers.
 	PrimaryActorTick.bCanEverTick = true;
-	PrimaryActorTick.bStartWithTickEnabled = false;
 
 	Capsule = CreateDefaultSubobject<UCapsuleComponent>(TEXT("Capsule"));
 	Capsule->SetCapsuleSize(120.f, 250.f);
@@ -147,6 +146,7 @@ void ABossCharacter::ApplyStun(float Duration)
 		GetWorldTimerManager().ClearTimer(AttackTimer);
 		StopBulletPattern();
 		StopLaserSweep();
+		StopTeleportAttack();
 
 		// StepIndex is left alone, so the interrupted attack runs again from its
 		// telegraph once the stun ends - the player gets a fresh tell, and the
@@ -272,6 +272,8 @@ bool ABossCharacter::CanAct() const
 
 void ABossCharacter::HandleEncounterStateChanged(EEncounterState NewState)
 {
+	CachedEncounterState = NewState;
+
 	if (NewState == EEncounterState::Fighting)
 	{
 		StartAttackSequence();
@@ -327,6 +329,7 @@ void ABossCharacter::StopAttackSequence()
 	GetWorldTimerManager().ClearTimer(AttackTimer);
 	StopBulletPattern();
 	StopLaserSweep();
+	StopTeleportAttack();
 }
 
 void ABossCharacter::RunCurrentStep()
@@ -393,6 +396,11 @@ void ABossCharacter::ExecuteCurrentStep()
 	if (Step.Type == EBossAttackType::BulletPattern)
 	{
 		BeginBulletPattern(Step);
+	}
+	else if (Step.Type == EBossAttackType::Teleport)
+	{
+		PatternStep = Step;
+		BeginTeleportAttack();
 	}
 	else if (Step.Type == EBossAttackType::LaserSweep)
 	{
@@ -566,10 +574,45 @@ void ABossCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (bFacePlayer)
+	{
+		TickFacing(DeltaTime);
+	}
+
 	if (bLaserActive)
 	{
 		TickLaserSweep(DeltaTime);
 	}
+}
+
+void ABossCharacter::TickFacing(float DeltaTime)
+{
+	// A stunned boss is inactive, and a finished fight should leave it wherever
+	// it stopped rather than tracking the player through the end screen.
+	if (bStunned
+		|| CachedEncounterState == EEncounterState::Victory
+		|| CachedEncounterState == EEncounterState::Defeat)
+	{
+		return;
+	}
+
+	const UWorld* World = GetWorld();
+	const APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
+	const APawn* Player = PC ? PC->GetPawn() : nullptr;
+
+	if (!Player)
+	{
+		return;
+	}
+
+	const float TargetYaw = (Player->GetActorLocation() - GetActorLocation()).Rotation().Yaw;
+
+	// FixedTurn handles wrapping past 180, so the boss always turns the short
+	// way round instead of spinning most of a circle to reach a nearby angle.
+	const float NewYaw = FMath::FixedTurn(GetActorRotation().Yaw, TargetYaw, FacingTurnRate * DeltaTime);
+
+	// Yaw only - pitch and roll stay flat so the boss never tips over.
+	SetActorRotation(FRotator(0.f, NewYaw, 0.f));
 }
 
 void ABossCharacter::BeginLaserSweep()
@@ -598,7 +641,6 @@ void ABossCharacter::BeginLaserSweep()
 
 	LaserSweepEndTime = World->GetTimeSeconds() + FMath::Max(PatternStep.LaserDuration, 0.1f);
 	bLaserActive = true;
-	SetActorTickEnabled(true);
 
 	OnLaserStarted();
 }
@@ -610,8 +652,7 @@ void ABossCharacter::StopLaserSweep()
 		bLaserActive = false;
 		OnLaserFinished();
 	}
-
-	SetActorTickEnabled(false);
+	
 	GetWorldTimerManager().ClearTimer(LaserIntervalTimer);
 }
 
@@ -628,7 +669,6 @@ void ABossCharacter::TickLaserSweep(float DeltaTime)
 	if (Now >= LaserSweepEndTime)
 	{
 		bLaserActive = false;
-		SetActorTickEnabled(false);
 		OnLaserFinished();
 
 		// Another sweep if the step still has time, re-capturing the player.
@@ -680,4 +720,81 @@ void ABossCharacter::TickLaserSweep(float DeltaTime)
 		DrawDebugLine(World, Start, End, FColor::Red, false, -1.f, 0, 4.f);
 	}
 #endif
+}
+
+// ---------------------------------------------------------------- Teleport
+
+void ABossCharacter::BeginTeleportAttack()
+{
+	if (TeleportAnchors.Num() < 2)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[Boss] Teleport needs at least 2 anchors on the placed boss - %d set, skipping."),
+			TeleportAnchors.Num());
+		return;
+	}
+
+	TeleportsRemaining = PatternStep.GetRepeatCount();
+
+	// Spread evenly across the step, so raising Intensity makes the boss blink
+	// faster within the same window rather than needing a second field.
+	TeleportInterval = PatternStep.Duration / FMath::Max(TeleportsRemaining, 1);
+
+	// The first one lands immediately; Duration paces the rest.
+	DoTeleport();
+}
+
+void ABossCharacter::StopTeleportAttack()
+{
+	TeleportsRemaining = 0;
+	GetWorldTimerManager().ClearTimer(TeleportTimer);
+}
+
+void ABossCharacter::DoTeleport()
+{
+	if (TeleportsRemaining <= 0)
+	{
+		return;
+	}
+
+	// Every anchor except the one we are standing on, so the boss is guaranteed
+	// to actually move rather than occasionally blinking in place.
+	TArray<int32> Candidates;
+	Candidates.Reserve(TeleportAnchors.Num());
+
+	for (int32 i = 0; i < TeleportAnchors.Num(); ++i)
+	{
+		if (i != CurrentAnchorIndex && TeleportAnchors[i])
+		{
+			Candidates.Add(i);
+		}
+	}
+
+	if (Candidates.Num() == 0)
+	{
+		StopTeleportAttack();
+		return;
+	}
+
+	const int32 ChosenIndex = Candidates[FMath::RandRange(0, Candidates.Num() - 1)];
+
+	const FVector From = GetActorLocation();
+	const FVector To = TeleportAnchors[ChosenIndex]->GetActorLocation();
+
+	// Location only - facing is driven by the player, not by the anchor.
+	SetActorLocation(To, false, nullptr, ETeleportType::TeleportPhysics);
+	CurrentAnchorIndex = ChosenIndex;
+
+	OnTeleported(From, To);
+
+	ScreenMessage(FString::Printf(TEXT("teleport -> %s"),
+		*GetNameSafe(TeleportAnchors[ChosenIndex])), FColor::Magenta);
+
+	--TeleportsRemaining;
+
+	if (TeleportsRemaining > 0)
+	{
+		GetWorldTimerManager().SetTimer(TeleportTimer, this, &ABossCharacter::DoTeleport,
+			FMath::Max(TeleportInterval, 0.05f), false);
+	}
 }
