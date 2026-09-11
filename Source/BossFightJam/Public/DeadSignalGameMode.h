@@ -20,6 +20,7 @@ enum class EEncounterState : uint8
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEncounterStateChanged, EEncounterState, NewState);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnBossRegistered, AActor*, Boss);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPauseChanged, bool, bIsPaused);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnGameEnded, EEncounterState, FinalState);
 
 /**
  * Referee for the Hiramor encounter.
@@ -86,6 +87,9 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Encounter|Pause")
 	FOnPauseChanged OnPauseChanged;
+	
+	UPROPERTY(BlueprintAssignable, Category = "Encounter")
+	FOnGameEnded OnGameEnded;
 
 protected:
 	virtual void BeginPlay() override;
@@ -102,9 +106,15 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Encounter")
 	bool bWaitForManualStart = false;
 
-	/** Seconds between the killing blow and the end screen, so death FX can play. */
-	UPROPERTY(EditDefaultsOnly, Category = "Encounter", meta = (ClampMin = "0.0"))
-	float EndScreenDelay = 2.f;
+	/** How far time slows when the fight ends. 1 disables the effect. */
+	UPROPERTY(EditDefaultsOnly, Category = "Encounter|End Game", meta = (ClampMin = "0.05", ClampMax = "1.0"))
+	float EndGameTimeDilation = 0.3f;
+
+	/**
+	 * How long the slow motion lasts, in real seconds.
+	 */
+	UPROPERTY(EditDefaultsOnly, Category = "Encounter|End Game", meta = (ClampMin = "0.0"))
+	float EndGameSlowMoDuration = 1.f;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Encounter")
 	EEncounterState EncounterState = EEncounterState::Intro;
@@ -118,6 +128,12 @@ private:
 	UFUNCTION()
 	void HandleBossDeath();
 	void SetEncounterState(EEncounterState NewState);
+
+	/** Shared victory and defeat path: close the fight, slow time, then show the screen. */
+	void BeginEndGameSequence(EEncounterState FinalState);
+
+	/** Restores time and announces the end screen. */
+	void FinishEndGameSequence();
 
 	/** Binds to an actor's health component if it has one. Returns the component, or null. */
 	UHealthComponent* BindDeathHandler(AActor* Actor, bool bIsPlayer);

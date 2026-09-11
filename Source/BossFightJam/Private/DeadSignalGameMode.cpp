@@ -92,15 +92,7 @@ void ADeadSignalGameMode::HandlePlayerDeath()
 		return;
 	}
 
-	SetEncounterState(EEncounterState::Defeat);
-
-	// Delay the screen so the death FX reads before the UI covers it.
-	FTimerDelegate Delegate;
-	Delegate.BindWeakLambda(this, [this]()
-	{
-		OnDefeat();
-	});
-	GetWorldTimerManager().SetTimer(EndScreenTimer, Delegate, FMath::Max(EndScreenDelay, 0.001f), false);
+	BeginEndGameSequence(EEncounterState::Defeat);
 }
 
 void ADeadSignalGameMode::HandleBossDeath()
@@ -110,14 +102,37 @@ void ADeadSignalGameMode::HandleBossDeath()
 		return;
 	}
 
-	SetEncounterState(EEncounterState::Victory);
+	BeginEndGameSequence(EEncounterState::Victory);
+}
 
-	FTimerDelegate Delegate;
-	Delegate.BindWeakLambda(this, [this]()
+void ADeadSignalGameMode::BeginEndGameSequence(EEncounterState FinalState)
+{
+	SetEncounterState(FinalState);
+
+	UGameplayStatics::SetGlobalTimeDilation(this, EndGameTimeDilation);
+	
+	const float ScaledDelay = FMath::Max(EndGameSlowMoDuration * EndGameTimeDilation, 0.001f);
+
+	GetWorldTimerManager().SetTimer(EndScreenTimer, this,
+		&ADeadSignalGameMode::FinishEndGameSequence, ScaledDelay, false);
+}
+
+void ADeadSignalGameMode::FinishEndGameSequence()
+{
+	// Restored before the screen appears, or every UI animation on it would
+	// play at a third speed.
+	UGameplayStatics::SetGlobalTimeDilation(this, 0.f);
+
+	OnGameEnded.Broadcast(EncounterState);
+
+	if (EncounterState == EEncounterState::Victory)
 	{
 		OnVictory();
-	});
-	GetWorldTimerManager().SetTimer(EndScreenTimer, Delegate, FMath::Max(EndScreenDelay, 0.001f), false);
+	}
+	else
+	{
+		OnDefeat();
+	}
 }
 
 void ADeadSignalGameMode::SetEncounterState(EEncounterState NewState)
@@ -139,6 +154,11 @@ bool ADeadSignalGameMode::IsEncounterOver() const
 void ADeadSignalGameMode::RestartEncounterLevel()
 {
 	GetWorldTimerManager().ClearTimer(EndScreenTimer);
+
+	// The new level would otherwise inherit whatever the end sequence or the
+	// pause menu left behind.
+	UGameplayStatics::SetGlobalTimeDilation(this, 1.f);
+	UGameplayStatics::SetGamePaused(this, false);
 
 	const FName CurrentLevel(*UGameplayStatics::GetCurrentLevelName(this, /*bRemovePrefixString=*/true));
 	UGameplayStatics::OpenLevel(this, CurrentLevel);
