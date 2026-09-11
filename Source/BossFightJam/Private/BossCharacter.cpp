@@ -303,6 +303,12 @@ int32 ABossCharacter::GetCurrentSequenceLength() const
 	return GetSequenceForPhase(CurrentPhase).Num();
 }
 
+EBossAttackType ABossCharacter::GetCurrentAttackType() const
+{
+	const TArray<FBossAttackStep>& Sequence = GetSequenceForPhase(CurrentPhase);
+	return Sequence.IsValidIndex(StepIndex) ? Sequence[StepIndex].Type : EBossAttackType::BulletPattern;
+}
+
 void ABossCharacter::StartAttackSequence()
 {
 	if (bSequenceRunning)

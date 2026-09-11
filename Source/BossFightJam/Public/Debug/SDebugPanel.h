@@ -42,6 +42,7 @@ private:
 	TSharedRef<SWidget> BuildPlayerSection();
 	TSharedRef<SWidget> BuildBossSection();
 	TSharedRef<SWidget> BuildHackSection();
+	TSharedRef<SWidget> BuildPoolSection();
 
 	/** Rebuilt when the hack count changes, since rows are per-hack. */
 	TSharedPtr<SVerticalBox> HackRows;

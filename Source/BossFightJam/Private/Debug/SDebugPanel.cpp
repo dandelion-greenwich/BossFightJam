@@ -53,6 +53,11 @@ void SDebugPanel::Construct(const FArguments& InArgs)
 			[
 				BuildHackSection()
 			]
+
+			+ SScrollBox::Slot()
+			[
+				BuildPoolSection()
+			]
 		]
 	];
 
@@ -275,8 +280,55 @@ TSharedRef<SWidget> SDebugPanel::BuildBossSection()
 					return NoValue;
 				}
 
-				return UEnum::GetDisplayValueAsText(UDebugControlLibrary::GetBossShieldState()).ToString()
-					+ (UDebugControlLibrary::IsBossStunned() ? TEXT("  (stunned)") : TEXT(""));
+				FString Line = UEnum::GetDisplayValueAsText(UDebugControlLibrary::GetBossShieldState()).ToString();
+
+				const float Remaining = UDebugControlLibrary::GetBossShieldRemaining();
+				if (Remaining > 0.f)
+				{
+					Line += FString::Printf(TEXT("  %.1fs left"), Remaining);
+				}
+
+				return Line;
+			})
+		]
+
+		+ SVerticalBox::Slot().AutoHeight()
+		[
+			MakeReadout(TEXT("Status"), []()
+			{
+				if (!UDebugControlLibrary::HasBoss())
+				{
+					return NoValue;
+				}
+
+				if (UDebugControlLibrary::IsBossStunned())    { return FString(TEXT("stunned")); }
+				if (UDebugControlLibrary::IsBossTransitioning()) { return FString(TEXT("transitioning")); }
+				if (!UDebugControlLibrary::IsBossAttacking())  { return FString(TEXT("idle")); }
+				return FString(TEXT("fighting"));
+			})
+		]
+
+		+ SVerticalBox::Slot().AutoHeight()
+		[
+			MakeReadout(TEXT("Attack"), []()
+			{
+				if (!UDebugControlLibrary::HasBoss())
+				{
+					return NoValue;
+				}
+
+				const int32 Step = UDebugControlLibrary::GetBossStepNumber();
+				const int32 Length = UDebugControlLibrary::GetBossSequenceLength();
+
+				if (Step == 0)
+				{
+					// A phase with no steps authored is the usual reason the
+					// boss stands there doing nothing, so say so plainly.
+					return Length == 0 ? FString(TEXT("no sequence authored")) : FString(TEXT("idle"));
+				}
+
+				return FString::Printf(TEXT("%d/%d  %s"), Step, Length,
+					*UDebugControlLibrary::GetBossCurrentAttackName());
 			})
 		]
 
@@ -357,6 +409,47 @@ TSharedRef<SWidget> SDebugPanel::BuildHackSection()
 			[
 				MakeButton(TEXT("Reset All Cooldowns"), []() { UDebugControlLibrary::ResetHackCooldowns(); })
 			]
+		]);
+}
+
+TSharedRef<SWidget> SDebugPanel::BuildPoolSection()
+{
+	return MakeSection(TEXT("PROJECTILE POOL"),
+		SNew(SVerticalBox)
+
+		+ SVerticalBox::Slot().AutoHeight()
+		[
+			MakeReadout(TEXT("In flight"), []()
+			{
+				return UDebugControlLibrary::IsGameRunning()
+					? FString::Printf(TEXT("%d"), UDebugControlLibrary::GetPoolActiveCount())
+					: NoValue;
+			})
+		]
+
+		+ SVerticalBox::Slot().AutoHeight()
+		[
+			MakeReadout(TEXT("Free"), []()
+			{
+				return UDebugControlLibrary::IsGameRunning()
+					? FString::Printf(TEXT("%d"), UDebugControlLibrary::GetPoolFreeCount())
+					: NoValue;
+			})
+		]
+
+		+ SVerticalBox::Slot().AutoHeight()
+		[
+			MakeReadout(TEXT("Total spawned"), []()
+			{
+				if (!UDebugControlLibrary::IsGameRunning())
+				{
+					return NoValue;
+				}
+
+				// Climbing mid-fight means the pool ran dry and had to grow,
+				// which is the one number here worth watching.
+				return FString::Printf(TEXT("%d"), UDebugControlLibrary::GetPoolTotalCount());
+			})
 		]);
 }
 

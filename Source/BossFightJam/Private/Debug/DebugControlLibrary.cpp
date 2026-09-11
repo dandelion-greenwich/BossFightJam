@@ -4,6 +4,7 @@
 #include "HackComponent.h"
 #include "HealthComponent.h"
 #include "WeaponComponent.h"
+#include "ProjectilePoolSubsystem.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
@@ -274,6 +275,72 @@ void UDebugControlLibrary::StunBoss(float Seconds)
 	{
 		Boss->ApplyStun(Seconds);
 	}
+}
+
+bool UDebugControlLibrary::IsBossTransitioning()
+{
+	const ABossCharacter* Boss = GetBoss();
+	return Boss && Boss->IsTransitioning();
+}
+
+float UDebugControlLibrary::GetBossShieldRemaining()
+{
+	const ABossCharacter* Boss = GetBoss();
+	return Boss ? Boss->GetRemainingShieldDownTime() : 0.f;
+}
+
+// ---------------------------------------------------------------- Boss attacks
+
+bool UDebugControlLibrary::IsBossAttacking()
+{
+	const ABossCharacter* Boss = GetBoss();
+	return Boss && Boss->IsAttacking();
+}
+
+int32 UDebugControlLibrary::GetBossStepNumber()
+{
+	const ABossCharacter* Boss = GetBoss();
+	return Boss && Boss->IsAttacking() ? Boss->GetCurrentStepIndex() + 1 : 0;
+}
+
+int32 UDebugControlLibrary::GetBossSequenceLength()
+{
+	const ABossCharacter* Boss = GetBoss();
+	return Boss ? Boss->GetCurrentSequenceLength() : 0;
+}
+
+FString UDebugControlLibrary::GetBossCurrentAttackName()
+{
+	const ABossCharacter* Boss = GetBoss();
+	if (!Boss || !Boss->IsAttacking())
+	{
+		return TEXT("idle");
+	}
+
+	return UEnum::GetDisplayValueAsText(Boss->GetCurrentAttackType()).ToString();
+}
+
+// ---------------------------------------------------------------- Pool
+
+int32 UDebugControlLibrary::GetPoolFreeCount()
+{
+	const UWorld* World = ResolveWorld();
+	const UProjectilePoolSubsystem* Pool = World ? World->GetSubsystem<UProjectilePoolSubsystem>() : nullptr;
+	return Pool ? Pool->GetFreeCount() : 0;
+}
+
+int32 UDebugControlLibrary::GetPoolActiveCount()
+{
+	const UWorld* World = ResolveWorld();
+	const UProjectilePoolSubsystem* Pool = World ? World->GetSubsystem<UProjectilePoolSubsystem>() : nullptr;
+	return Pool ? Pool->GetActiveCount() : 0;
+}
+
+int32 UDebugControlLibrary::GetPoolTotalCount()
+{
+	const UWorld* World = ResolveWorld();
+	const UProjectilePoolSubsystem* Pool = World ? World->GetSubsystem<UProjectilePoolSubsystem>() : nullptr;
+	return Pool ? Pool->GetTotalCount() : 0;
 }
 
 // ---------------------------------------------------------------- Hacks

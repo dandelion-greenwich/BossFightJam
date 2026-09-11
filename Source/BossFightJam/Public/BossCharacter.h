@@ -195,6 +195,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Boss|Attacks")
 	int32 GetCurrentSequenceLength() const;
 
+	/** The step currently running. Meaningless while IsAttacking is false. */
+	UFUNCTION(BlueprintPure, Category = "Boss|Attacks")
+	EBossAttackType GetCurrentAttackType() const;
+
 #if !UE_BUILD_SHIPPING
 	// Debug only 
 	void DebugSetPhase(EBossPhase NewPhase);

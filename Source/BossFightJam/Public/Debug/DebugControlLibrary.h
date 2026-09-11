@@ -126,6 +126,41 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Debug|Boss")
 	static void StunBoss(float Seconds);
 
+	UFUNCTION(BlueprintPure, Category = "Debug|Boss")
+	static bool IsBossTransitioning();
+
+	/** Seconds left in the damage window, 0 when the shield is up. */
+	UFUNCTION(BlueprintPure, Category = "Debug|Boss")
+	static float GetBossShieldRemaining();
+
+	// ------------------------------------------------------------ Boss attacks
+
+	UFUNCTION(BlueprintPure, Category = "Debug|Attacks")
+	static bool IsBossAttacking();
+
+	/** 1-based, for display. 0 when no sequence is running. */
+	UFUNCTION(BlueprintPure, Category = "Debug|Attacks")
+	static int32 GetBossStepNumber();
+
+	UFUNCTION(BlueprintPure, Category = "Debug|Attacks")
+	static int32 GetBossSequenceLength();
+
+	UFUNCTION(BlueprintPure, Category = "Debug|Attacks")
+	static FString GetBossCurrentAttackName();
+
+	// ------------------------------------------------------------ Projectile pool
+
+	UFUNCTION(BlueprintPure, Category = "Debug|Pool")
+	static int32 GetPoolFreeCount();
+
+	/** Projectiles in flight right now. */
+	UFUNCTION(BlueprintPure, Category = "Debug|Pool")
+	static int32 GetPoolActiveCount();
+
+	/** Every projectile ever created. Should plateau after the prewarm. */
+	UFUNCTION(BlueprintPure, Category = "Debug|Pool")
+	static int32 GetPoolTotalCount();
+
 	// ------------------------------------------------------------ Hacks
 
 	UFUNCTION(BlueprintPure, Category = "Debug|Hacks")
