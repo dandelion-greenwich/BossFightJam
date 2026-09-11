@@ -19,6 +19,7 @@ enum class EEncounterState : uint8
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEncounterStateChanged, EEncounterState, NewState);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnBossRegistered, AActor*, Boss);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPauseChanged, bool, bIsPaused);
 
 /**
  * Referee for the Hiramor encounter.
@@ -53,9 +54,21 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Encounter")
 	EEncounterState GetEncounterState() const { return EncounterState; }
 
-	/** True only while the fight is live - use to gate damage, input, boss AI. */
+	/**
+	 * True only while the fight is live and unpaused.
+	 */
 	UFUNCTION(BlueprintPure, Category = "Encounter")
-	bool IsFighting() const { return EncounterState == EEncounterState::Fighting; }
+	bool IsFighting() const { return EncounterState == EEncounterState::Fighting && !bIsPaused; }
+
+	UFUNCTION(BlueprintPure, Category = "Encounter|Pause")
+	bool IsPaused() const { return bIsPaused; }
+
+	// Called from Player BP
+	UFUNCTION(BlueprintCallable, Category = "Encounter|Pause")
+	void TogglePause();
+
+	UFUNCTION(BlueprintCallable, Category = "Encounter|Pause")
+	void SetPaused(bool bNewPaused);
 
 	UFUNCTION(BlueprintPure, Category = "Encounter")
 	bool IsEncounterOver() const;
@@ -70,6 +83,9 @@ public:
 	// Binding for the HUD
 	UPROPERTY(BlueprintAssignable, Category = "Encounter")
 	FOnBossRegistered OnBossRegistered;
+
+	UPROPERTY(BlueprintAssignable, Category = "Encounter|Pause")
+	FOnPauseChanged OnPauseChanged;
 
 protected:
 	virtual void BeginPlay() override;
@@ -92,6 +108,9 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Encounter")
 	EEncounterState EncounterState = EEncounterState::Intro;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Encounter|Pause")
+	bool bIsPaused = false;
 
 private:
 	UFUNCTION()

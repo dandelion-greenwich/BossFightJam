@@ -3,6 +3,8 @@
 #include "Damageable.h"
 #include "HealthComponent.h"
 #include "HackComponent.h"
+#include "DeadSignalGameMode.h"
+#include "Kismet/GameplayStatics.h"
 #include "Camera/CameraComponent.h"
 #include "Components/MeshComponent.h"
 #include "Engine/World.h"
@@ -63,6 +65,16 @@ bool UWeaponComponent::CanFire() const
 	if (bIsReloading)
 	{
 		return false;
+	}
+
+	// The same gate the hack component uses, so pause and the end of the fight
+	// stop shooting without the Blueprint having to check anything.
+	if (const ADeadSignalGameMode* GameMode = Cast<ADeadSignalGameMode>(UGameplayStatics::GetGameMode(this)))
+	{
+		if (!GameMode->IsFighting())
+		{
+			return false;
+		}
 	}
 
 	// Either shoot or hack, player can't do both

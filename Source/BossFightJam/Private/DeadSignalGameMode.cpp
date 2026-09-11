@@ -143,3 +143,33 @@ void ADeadSignalGameMode::RestartEncounterLevel()
 	const FName CurrentLevel(*UGameplayStatics::GetCurrentLevelName(this, /*bRemovePrefixString=*/true));
 	UGameplayStatics::OpenLevel(this, CurrentLevel);
 }
+
+// ---------------------------------------------------------------- Pause
+
+void ADeadSignalGameMode::TogglePause()
+{
+	SetPaused(!bIsPaused);
+}
+
+void ADeadSignalGameMode::SetPaused(bool bNewPaused)
+{
+	if (bIsPaused == bNewPaused)
+	{
+		return;
+	}
+
+	// Refused once the fight is over: pausing a victory screen does nothing
+	// useful and would leave the player stuck behind a menu with no fight.
+	if (bNewPaused && IsEncounterOver())
+	{
+		return;
+	}
+
+	bIsPaused = bNewPaused;
+
+	// Freezes tick and every timer, so hack cooldowns, attack sequences and
+	// projectile lifespans all hold rather than draining while paused.
+	UGameplayStatics::SetGamePaused(this, bIsPaused);
+
+	OnPauseChanged.Broadcast(bIsPaused);
+}
