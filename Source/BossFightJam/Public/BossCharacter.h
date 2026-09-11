@@ -10,9 +10,9 @@
 class UCapsuleComponent;
 class USkeletalMeshComponent;
 class UHealthComponent;
+class AProjectileBase;
 
-/** The boss's repertoire. Kept here rather than in the shared types header
- *  because nothing on the player side needs to name an attack. */
+
 UENUM(BlueprintType)
 enum class EBossAttackType : uint8
 {
@@ -67,6 +67,38 @@ struct FBossAttackStep
 	 * mean three hops in one attack and two in another.
 	 */
 	int32 GetRepeatCount() const { return FMath::Max(1, FMath::RoundToInt(Intensity)); }
+
+	// ---- Bullet Pattern only. Ignored by every other type. ----
+
+	/** Bullets per band, spread across YawArc. Scaled by Intensity. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack|Bullet Pattern", meta = (ClampMin = "1"))
+	int32 Arms = 7;
+
+	/** Horizontal spread, centred on the boss's facing. 180 is a forward half-circle. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack|Bullet Pattern", meta = (ClampMin = "0.0", ClampMax = "360.0"))
+	float YawArc = 180.f;
+
+	/** Horizontal slices stacked vertically. 1 is a flat fan. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack|Bullet Pattern", meta = (ClampMin = "1"))
+	int32 PitchBands = 3;
+
+	/** Vertical spread either side of level, in degrees. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack|Bullet Pattern", meta = (ClampMin = "0.0", ClampMax = "89.0"))
+	float PitchArc = 30.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack|Bullet Pattern", meta = (ClampMin = "0.02"))
+	float WaveInterval = 0.25f;
+
+	/** Degrees the fan rotates between waves. 0 gives straight rays, anything else spirals. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack|Bullet Pattern")
+	float SpinPerWave = 0.f;
+
+	/** Distance in front of the boss that bullets appear. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack|Bullet Pattern", meta = (ClampMin = "0.0"))
+	float MuzzleOffset = 150.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack|Bullet Pattern")
+	bool bAimAtPlayer = true;
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPhaseChanged, EBossPhase, NewPhase);
@@ -201,6 +233,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boss|Attacks")
 	TArray<FBossAttackStep> Phase3Sequence;
 
+	/** Pooled and reused for every bullet the boss fires. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boss|Attacks")
+	TSubclassOf<AProjectileBase> ProjectileClass;
+
+	/** Prewarmed at BeginPlay so the first volley does not hitch. */
+	UPROPERTY(EditDefaultsOnly, Category = "Boss|Attacks", meta = (ClampMin = "0"))
+	int32 ProjectilePoolSize = 200;
+
 	/** Seconds to wait before retrying when stunned or transitioning. */
 	UPROPERTY(EditDefaultsOnly, Category = "Boss|Attacks", meta = (ClampMin = "0.05"))
 	float BlockedRetryInterval = 0.25f;
@@ -264,6 +304,23 @@ private:
 
 	const TArray<FBossAttackStep>& GetSequenceForPhase(EBossPhase Phase) const;
 	void ScreenMessage(const FString& Message, const FColor Colour) const;
+
+	/** Begins a bullet pattern: fires the first wave and schedules the rest. */
+	void BeginBulletPattern(const FBossAttackStep& Step);
+
+	/** Emits one fan - PitchBands slices, each Arms wide across YawArc. */
+	void FireBulletWave();
+
+	void StopBulletPattern();
+
+	/** The step currently emitting, copied so the sequence can move on safely. */
+	FBossAttackStep PatternStep;
+	bool bPatternFiring = false;
+
+	/** World time the pattern stops emitting - the step's Duration from its start. */
+	float PatternEndTime = 0.f;
+	float PatternSpin = 0.f;
+	FTimerHandle WaveTimer;
 
 	bool bTransitioning = false;
 	bool bStunned = false;

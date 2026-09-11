@@ -6,6 +6,8 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/Engine.h"
+#include "ProjectileBase.h"
+#include "ProjectilePoolSubsystem.h"
 
 ABossCharacter::ABossCharacter()
 {
@@ -30,6 +32,18 @@ ABossCharacter::ABossCharacter()
 void ABossCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (ProjectileClass)
+	{
+		if (UProjectilePoolSubsystem* Pool = GetWorld()->GetSubsystem<UProjectilePoolSubsystem>())
+		{
+			Pool->Prewarm(ProjectileClass, ProjectilePoolSize);
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Boss] No ProjectileClass set - bullet patterns will fire nothing."));
+	}
 
 	if (Health)
 	{
@@ -122,6 +136,25 @@ void ABossCharacter::ApplyStun(float Duration)
 		OnStunChanged.Broadcast(true);
 		OnStunStarted();
 	}
+
+	// Cancel whatever was pending. Without this a stun landing mid-telegraph
+	// would still let the attack fire, since only RunCurrentStep checks CanAct.
+	if (bSequenceRunning)
+	{
+		GetWorldTimerManager().ClearTimer(AttackTimer);
+		StopBulletPattern();
+
+		// StepIndex is left alone, so the interrupted attack runs again from its
+		// telegraph once the stun ends - the player gets a fresh tell, and the
+		// stun costs the boss the wind-up rather than skipping content.
+		RunCurrentStep();
+
+		ScreenMessage(FString::Printf(TEXT("STUNNED %.1fs - attack interrupted"), Duration), FColor::Red);
+	}
+	else
+	{
+		ScreenMessage(FString::Printf(TEXT("STUNNED %.1fs"), Duration), FColor::Red);
+	}
 }
 
 void ABossCharacter::EndStun()
@@ -134,6 +167,8 @@ void ABossCharacter::EndStun()
 	bStunned = false;
 	OnStunChanged.Broadcast(false);
 	OnStunEnded();
+
+	ScreenMessage(TEXT("stun over - resuming"), FColor::Red);
 }
 
 
@@ -286,6 +321,7 @@ void ABossCharacter::StopAttackSequence()
 {
 	bSequenceRunning = false;
 	GetWorldTimerManager().ClearTimer(AttackTimer);
+	StopBulletPattern();
 }
 
 void ABossCharacter::RunCurrentStep()
@@ -348,9 +384,12 @@ void ABossCharacter::ExecuteCurrentStep()
 	}
 
 	const FBossAttackStep& Step = Sequence[StepIndex];
+	
+	if (Step.Type == EBossAttackType::BulletPattern)
+	{
+		BeginBulletPattern(Step);
+	}
 
-	// The actual attack lives in Blueprint for now - this schedules and
-	// announces, the BP spawns whatever the step means.
 	OnAttackExecute(Step.Type, StepIndex, Step.Intensity, Step.GetRepeatCount());
 
 	UE_LOG(LogTemp, Log, TEXT("[Boss] t=%.2f  P%d step %d/%d  %s  intensity %.2f (x%d)"),
@@ -394,4 +433,118 @@ void ABossCharacter::ScreenMessage(const FString& Message, const FColor Colour) 
 		GEngine->AddOnScreenDebugMessage(-1, 4.f, Colour, TEXT("[BOSS] ") + Message);
 	}
 #endif
+}
+
+// ---------------------------------------------------------------- Bullets
+
+void ABossCharacter::BeginBulletPattern(const FBossAttackStep& Step)
+{
+	// Copied rather than referenced: the sequence advances while waves are
+	// still in flight, so the step it points at can change underneath us.
+	PatternStep = Step;
+	PatternSpin = 0.f;
+	bPatternFiring = true;
+
+	// Emitting is bounded by the step's Duration rather than a wave count, so
+	// how long an attack lasts is stated once and cannot drift out of sync.
+	PatternEndTime = GetWorld()->GetTimeSeconds() + Step.Duration;
+
+	FireBulletWave();
+}
+
+void ABossCharacter::StopBulletPattern()
+{
+	bPatternFiring = false;
+	GetWorldTimerManager().ClearTimer(WaveTimer);
+}
+
+void ABossCharacter::FireBulletWave()
+{
+	if (!bPatternFiring)
+	{
+		return;
+	}
+
+	UProjectilePoolSubsystem* Pool = GetWorld() ? GetWorld()->GetSubsystem<UProjectilePoolSubsystem>() : nullptr;
+	if (!Pool)
+	{
+		StopBulletPattern();
+		return;
+	}
+
+	const int32 BaseArms = FMath::Max(1, FMath::RoundToInt(PatternStep.Arms * PatternStep.Intensity));
+	const int32 Bands = FMath::Max(1, PatternStep.PitchBands);
+
+	const bool bFullCircle = PatternStep.YawArc >= 359.9f;
+	const int32 BaseDivisions = bFullCircle ? BaseArms : FMath::Max(1, BaseArms - 1);
+	const float BaseYawStep = PatternStep.YawArc / BaseDivisions;
+
+	// The arc is centred on wherever the boss faces, so "in front of it" is
+	// whatever the boss is currently pointing at.
+	float CentreYaw = GetActorRotation().Yaw;
+	float CentrePitch = GetActorRotation().Pitch;
+
+	if (PatternStep.bAimAtPlayer)
+	{
+		if (const APawn* Player = GetWorld()->GetFirstPlayerController()
+			? GetWorld()->GetFirstPlayerController()->GetPawn() : nullptr)
+		{
+			const FRotator ToPlayer = (Player->GetActorLocation() - GetActorLocation()).Rotation();
+			CentreYaw = ToPlayer.Yaw;
+			CentrePitch = ToPlayer.Pitch;
+		}
+		
+		if (BaseYawStep > 0.f)
+		{
+			CentreYaw += FMath::Fmod(PatternSpin, BaseYawStep);
+		}
+	}
+	else
+	{
+		// Free-aimed: let it accumulate, which is what turns a fan into a spiral.
+		CentreYaw += PatternSpin;
+	}
+
+	for (int32 Band = 0; Band < Bands; ++Band)
+	{
+		// Bands spread either side of the aim, not either side of level.
+		// Clamped short of straight up or down, where yaw stops meaning anything.
+		const float BandAlpha = Bands > 1 ? static_cast<float>(Band) / (Bands - 1) : 0.5f;
+		const float BandOffset = FMath::Lerp(-PatternStep.PitchArc, PatternStep.PitchArc, BandAlpha);
+		const float Pitch = FMath::Clamp(CentrePitch + BandOffset, -89.f, 89.f);
+
+		// A band near the extremes covers far less ground than one at level, so
+		// evening the spread means thinning those bands by their cosine.
+		int32 ArmsThisBand = BaseArms;
+
+		// A full circle must not fire twice at the same heading, so the last
+		// division is dropped when the arc closes on itself.
+		const int32 Divisions = bFullCircle ? ArmsThisBand : FMath::Max(1, ArmsThisBand - 1);
+		const float YawStep = Divisions > 0 ? PatternStep.YawArc / Divisions : 0.f;
+		const float StartYaw = CentreYaw - (PatternStep.YawArc * 0.5f);
+
+		for (int32 i = 0; i < ArmsThisBand; ++i)
+		{
+			const FRotator Direction(Pitch, ArmsThisBand > 1 ? StartYaw + YawStep * i : CentreYaw, 0.f);
+			const FVector Origin = GetActorLocation() + Direction.Vector() * PatternStep.MuzzleOffset;
+
+			Pool->Acquire(FTransform(Direction, Origin), this);
+		}
+	}
+
+	PatternSpin += PatternStep.SpinPerWave;
+
+	// Only schedule another if it would land inside the attack, so the pattern
+	// never spills past the step it belongs to. A Duration of 0 therefore fires
+	// exactly one wave, which is the sensible reading of an instant attack.
+	const float Interval = FMath::Max(PatternStep.WaveInterval, 0.02f);
+
+	if (GetWorld()->GetTimeSeconds() + Interval <= PatternEndTime)
+	{
+		GetWorldTimerManager().SetTimer(WaveTimer, this, &ABossCharacter::FireBulletWave, Interval, false);
+	}
+	else
+	{
+		bPatternFiring = false;
+	}
 }
