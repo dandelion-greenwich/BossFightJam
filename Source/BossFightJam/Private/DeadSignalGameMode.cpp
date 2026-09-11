@@ -43,6 +43,8 @@ void ADeadSignalGameMode::RegisterBoss(AActor* InBoss)
 
 	Boss = InBoss;
 	BossHealth = BindDeathHandler(InBoss, /*bIsPlayer=*/false);
+
+	OnBossRegistered.Broadcast(InBoss);
 }
 
 UHealthComponent* ADeadSignalGameMode::BindDeathHandler(AActor* Actor, bool bIsPlayer)

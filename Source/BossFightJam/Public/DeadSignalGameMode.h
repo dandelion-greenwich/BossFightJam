@@ -18,6 +18,7 @@ enum class EEncounterState : uint8
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEncounterStateChanged, EEncounterState, NewState);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnBossRegistered, AActor*, Boss);
 
 /**
  * Referee for the Hiramor encounter.
@@ -65,6 +66,10 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Encounter")
 	FOnEncounterStateChanged OnEncounterStateChanged;
+
+	// Binding for the HUD
+	UPROPERTY(BlueprintAssignable, Category = "Encounter")
+	FOnBossRegistered OnBossRegistered;
 
 protected:
 	virtual void BeginPlay() override;
