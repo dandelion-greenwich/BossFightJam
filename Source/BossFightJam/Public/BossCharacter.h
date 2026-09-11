@@ -99,6 +99,29 @@ struct FBossAttackStep
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack|Bullet Pattern")
 	bool bAimAtPlayer = true;
+
+	/** How long one sweep lasts. Several run back to back across the step's Duration. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack|Laser Sweep", meta = (ClampMin = "0.1"))
+	float LaserDuration = 1.5f;
+
+	/**
+	 * Degrees per second the beam rotates upward from straight down.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack|Laser Sweep", meta = (ClampMin = "1.0"))
+	float LaserSweepSpeed = 70.f;
+
+	/** Gap between one sweep ending and the next starting. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack|Laser Sweep", meta = (ClampMin = "0.0"))
+	float LaserInterval = 0.25f;
+
+	/**
+	 * Damage per contact, not per second.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack|Laser Sweep", meta = (ClampMin = "0.0"))
+	float LaserDamage = 10.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack|Laser Sweep", meta = (ClampMin = "100.0"))
+	float LaserRange = 6000.f;
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPhaseChanged, EBossPhase, NewPhase);
@@ -188,6 +211,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaTime) override;
 
 	/** FX hooks for BP_Hiramor. C++ never needs to know what they do. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Boss|Shield")
@@ -218,6 +242,18 @@ protected:
 	 */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Boss|Attacks")
 	void OnAttackExecute(EBossAttackType Type, int32 StepIndexInSequence, float Intensity, int32 RepeatCount);
+
+	/** One sweep is beginning. Spawn the beam effect here. */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Boss|Attacks")
+	void OnLaserStarted();
+
+	/** Every frame of a sweep. Position the beam between these two points. */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Boss|Attacks")
+	void OnLaserUpdated(const FVector& Start, const FVector& End, float SweepAlpha);
+
+	/** The sweep ended. Another may follow if the step still has time left. */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Boss|Attacks")
+	void OnLaserFinished();
 
 	/** Fires once the whole phase order has been run, before it loops. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Boss|Attacks")
@@ -313,6 +349,14 @@ private:
 
 	void StopBulletPattern();
 
+	/** Captures the player and begins one sweep from straight down. */
+	void BeginLaserSweep();
+
+	/** Advances the beam, traces it, and damages anything it touches. */
+	void TickLaserSweep(float DeltaTime);
+
+	void StopLaserSweep();
+
 	/** The step currently emitting, copied so the sequence can move on safely. */
 	FBossAttackStep PatternStep;
 	bool bPatternFiring = false;
@@ -321,6 +365,20 @@ private:
 	float PatternEndTime = 0.f;
 	float PatternSpin = 0.f;
 	FTimerHandle WaveTimer;
+
+	bool bLaserActive = false;
+
+	/** World time the whole laser step ends - bounds how many sweeps run. */
+	float LaserAttackEndTime = 0.f;
+
+	/** World time this individual sweep ends. */
+	float LaserSweepEndTime = 0.f;
+
+	/** Captured when the sweep starts, then fixed - the beam does not track. */
+	float LaserYaw = 0.f;
+	float LaserPitch = -90.f;
+
+	FTimerHandle LaserIntervalTimer;
 
 	bool bTransitioning = false;
 	bool bStunned = false;

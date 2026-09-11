@@ -8,10 +8,13 @@
 #include "Engine/Engine.h"
 #include "ProjectileBase.h"
 #include "ProjectilePoolSubsystem.h"
+#include "DrawDebugHelpers.h"
 
 ABossCharacter::ABossCharacter()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	// Enabled only while a laser is sweeping; everything else runs on timers.
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = false;
 
 	Capsule = CreateDefaultSubobject<UCapsuleComponent>(TEXT("Capsule"));
 	Capsule->SetCapsuleSize(120.f, 250.f);
@@ -143,6 +146,7 @@ void ABossCharacter::ApplyStun(float Duration)
 	{
 		GetWorldTimerManager().ClearTimer(AttackTimer);
 		StopBulletPattern();
+		StopLaserSweep();
 
 		// StepIndex is left alone, so the interrupted attack runs again from its
 		// telegraph once the stun ends - the player gets a fresh tell, and the
@@ -322,6 +326,7 @@ void ABossCharacter::StopAttackSequence()
 	bSequenceRunning = false;
 	GetWorldTimerManager().ClearTimer(AttackTimer);
 	StopBulletPattern();
+	StopLaserSweep();
 }
 
 void ABossCharacter::RunCurrentStep()
@@ -388,6 +393,12 @@ void ABossCharacter::ExecuteCurrentStep()
 	if (Step.Type == EBossAttackType::BulletPattern)
 	{
 		BeginBulletPattern(Step);
+	}
+	else if (Step.Type == EBossAttackType::LaserSweep)
+	{
+		PatternStep = Step;
+		LaserAttackEndTime = GetWorld()->GetTimeSeconds() + Step.Duration;
+		BeginLaserSweep();
 	}
 
 	OnAttackExecute(Step.Type, StepIndex, Step.Intensity, Step.GetRepeatCount());
@@ -547,4 +558,126 @@ void ABossCharacter::FireBulletWave()
 	{
 		bPatternFiring = false;
 	}
+}
+
+// ---------------------------------------------------------------- Laser
+
+void ABossCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (bLaserActive)
+	{
+		TickLaserSweep(DeltaTime);
+	}
+}
+
+void ABossCharacter::BeginLaserSweep()
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	// Captured now and then fixed. The beam does not track, so the sweep is
+	// dodgeable - but each new sweep re-captures, so standing still is not.
+	LaserYaw = GetActorRotation().Yaw;
+
+	if (const APlayerController* PC = World->GetFirstPlayerController())
+	{
+		if (const APawn* Player = PC->GetPawn())
+		{
+			LaserYaw = (Player->GetActorLocation() - GetActorLocation()).Rotation().Yaw;
+		}
+	}
+
+	// Always starts pointing straight down, so the contact point begins under
+	// the boss and races outward as the pitch rises.
+	LaserPitch = -90.f;
+
+	LaserSweepEndTime = World->GetTimeSeconds() + FMath::Max(PatternStep.LaserDuration, 0.1f);
+	bLaserActive = true;
+	SetActorTickEnabled(true);
+
+	OnLaserStarted();
+}
+
+void ABossCharacter::StopLaserSweep()
+{
+	if (bLaserActive)
+	{
+		bLaserActive = false;
+		OnLaserFinished();
+	}
+
+	SetActorTickEnabled(false);
+	GetWorldTimerManager().ClearTimer(LaserIntervalTimer);
+}
+
+void ABossCharacter::TickLaserSweep(float DeltaTime)
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	const float Now = World->GetTimeSeconds();
+
+	if (Now >= LaserSweepEndTime)
+	{
+		bLaserActive = false;
+		SetActorTickEnabled(false);
+		OnLaserFinished();
+
+		// Another sweep if the step still has time, re-capturing the player.
+		if (Now < LaserAttackEndTime)
+		{
+			GetWorldTimerManager().SetTimer(LaserIntervalTimer, this, &ABossCharacter::BeginLaserSweep,
+				FMath::Max(PatternStep.LaserInterval, 0.01f), false);
+		}
+		return;
+	}
+
+	// Rotating up from straight down. Speed times duration is the arc covered,
+	// so how far past the player it reaches falls out of those two.
+	LaserPitch += PatternStep.LaserSweepSpeed * DeltaTime;
+	LaserPitch = FMath::Clamp(LaserPitch, -90.f, 89.f);
+
+	const FRotator Direction(LaserPitch, LaserYaw, 0.f);
+	const FVector Start = GetActorLocation();
+	FVector End = Start + Direction.Vector() * PatternStep.LaserRange;
+
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(BossLaser), /*bTraceComplex=*/false);
+	Params.AddIgnoredActor(this);
+
+	// Geometry stops the beam, so it does not shine through the arena walls.
+	FHitResult GeometryHit;
+	if (World->LineTraceSingleByChannel(GeometryHit, Start, End, ECC_Visibility, Params))
+	{
+		End = GeometryHit.ImpactPoint;
+	}
+
+	FHitResult PawnHit;
+	if (World->LineTraceSingleByChannel(PawnHit, Start, End, ECC_Pawn, Params))
+	{
+		if (AActor* HitActor = PawnHit.GetActor())
+		{
+			if (UHealthComponent* PlayerHealth = HitActor->FindComponentByClass<UHealthComponent>())
+			{
+				PlayerHealth->ApplyDamage(PatternStep.LaserDamage, this);
+			}
+		}
+	}
+
+	const float SweepAlpha = FMath::GetRangePct(LaserSweepEndTime - PatternStep.LaserDuration, LaserSweepEndTime, Now);
+	OnLaserUpdated(Start, End, FMath::Clamp(SweepAlpha, 0.f, 1.f));
+
+#if ENABLE_DRAW_DEBUG
+	if (bShowDebugMessages)
+	{
+		DrawDebugLine(World, Start, End, FColor::Red, false, -1.f, 0, 4.f);
+	}
+#endif
 }
