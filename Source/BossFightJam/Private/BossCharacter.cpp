@@ -233,8 +233,14 @@ void ABossCharacter::EnterPhase(EBossPhase NewPhase)
 
 	if (bSequenceRunning)
 	{
-		// Refresh values for the new phase
+		// Everything in flight belongs to the old phase. Clearing only the step
+		// timer would leave a laser still sweeping and a bullet pattern still
+		// emitting across the boundary and into the new phase.
 		GetWorldTimerManager().ClearTimer(AttackTimer);
+		StopBulletPattern();
+		StopLaserSweep();
+		StopTeleportAttack();
+
 		StepIndex = 0;
 		RunCurrentStep();
 	}
