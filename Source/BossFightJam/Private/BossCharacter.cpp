@@ -14,19 +14,20 @@ ABossCharacter::ABossCharacter()
 {
 	// Ticks for facing player and laser sweep,  everything else runs on timers.
 	PrimaryActorTick.bCanEverTick = true;
+	
+
+	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
+	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	RootComponent = Mesh;
 
 	Capsule = CreateDefaultSubobject<UCapsuleComponent>(TEXT("Capsule"));
 	Capsule->SetCapsuleSize(120.f, 250.f);
 	Capsule->SetCollisionProfileName(TEXT("Pawn"));
+	Capsule->SetupAttachment(Mesh);
 
 	// For weapon detection
 	Capsule->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
-
-	RootComponent = Capsule;
-
-	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
-	Mesh->SetupAttachment(Capsule);
-	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	Health = CreateDefaultSubobject<UHealthComponent>(TEXT("Health"));
 }
@@ -82,12 +83,18 @@ void ABossCharacter::DropShield(float Duration)
 	GetWorldTimerManager().SetTimer(ShieldTimer, this, &ABossCharacter::RestoreShield, Duration, false);
 
 	SetShieldState(EShieldState::Down);
+	
+	if (Mesh)
+		Mesh -> SetMaterial(1, InvisibleMaterial);
 }
 
 void ABossCharacter::RestoreShield()
 {
 	GetWorldTimerManager().ClearTimer(ShieldTimer);
 	SetShieldState(EShieldState::Up);
+
+	if (Mesh)
+		Mesh ->SetMaterial(1, ShieldMaterial);
 }
 
 void ABossCharacter::SetShieldState(EShieldState NewState)

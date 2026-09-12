@@ -310,6 +310,12 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Boss")
 	TObjectPtr<UStaticMeshComponent> Mesh;
 
+	UPROPERTY(EditAnywhere, Category = "Boss|Visuals")
+	TObjectPtr<UMaterialInterface> ShieldMaterial;
+
+	UPROPERTY(EditAnywhere, Category = "Boss|Visuals")
+	TObjectPtr<UMaterialInterface> InvisibleMaterial;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Boss")
 	TObjectPtr<UHealthComponent> Health;
 
