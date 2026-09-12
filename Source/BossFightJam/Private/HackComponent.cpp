@@ -4,6 +4,8 @@
 #include "HealthComponent.h"
 #include "DeadSignalGameMode.h"
 #include "Kismet/GameplayStatics.h"
+#include "Components/MeshComponent.h"
+#include "Materials/MaterialInterface.h"
 #include "Engine/Engine.h"
 
 UHackComponent::UHackComponent()
@@ -20,6 +22,15 @@ void UHackComponent::BeginPlay()
 
 	// Generated up front so a panel built before the first open
 	RegeneratePatterns();
+
+	if (AActor* Owner = GetOwner())
+	{
+		ShieldMesh = Cast<UMeshComponent>(ShieldMeshReference.GetComponent(Owner));
+	}
+
+	// The shield starts down, so the mesh starts wearing the invisible material
+	// rather than relying on whatever was set in the editor.
+	SetShieldVisible(false);
 }
 
 // ---------------------------------------------------------------- Panel
@@ -348,6 +359,8 @@ void UHackComponent::ApplyHackEffect(const FHackDefinition& Hack)
 		{
 			Health->SetInvulnerable(true);
 		}
+
+		SetShieldVisible(true);
 		break;
 	}
 
@@ -371,7 +384,21 @@ void UHackComponent::RemoveHackEffect(const FHackDefinition& Hack)
 		{
 			Health->SetInvulnerable(false);
 		}
+
+		SetShieldVisible(false);
 	}
+}
+
+void UHackComponent::SetShieldVisible(bool bVisible)
+{
+	UMaterialInterface* Material = bVisible ? ShieldMaterial : InvisibleMaterial;
+
+	if (!ShieldMesh || !Material)
+	{
+		return;
+	}
+	
+	ShieldMesh->SetMaterial(0, Material);
 }
 
 #if !UE_BUILD_SHIPPING

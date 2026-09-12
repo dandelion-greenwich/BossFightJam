@@ -2,11 +2,14 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Engine/EngineTypes.h"
 #include "DeadSignalTypes.h"
 #include "HackComponent.generated.h"
 
 class ABossCharacter;
 class UHealthComponent;
+class UMaterialInterface;
+class UMeshComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPanelToggled, bool, bIsOpen);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPatternsRegenerated);
@@ -132,6 +135,16 @@ protected:
 	/** Keys per generated sequence. A difficulty dial - longer costs damage uptime. */
 	UPROPERTY(EditDefaultsOnly, Category = "Hacks", meta = (ClampMin = "1", ClampMax = "6"))
 	int32 SequenceLength = 5;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hacks|Shield",
+		meta = (UseComponentPicker, AllowedClasses = "/Script/Engine.MeshComponent"))
+	FComponentReference ShieldMeshReference;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hacks|Shield")
+	TObjectPtr<UMaterialInterface> ShieldMaterial;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hacks|Shield")
+	TObjectPtr<UMaterialInterface> InvisibleMaterial;
 
 private:
 	void RegeneratePatterns();
@@ -150,9 +163,15 @@ private:
 
 	ABossCharacter* GetBoss();
 	UHealthComponent* GetOwnerHealth() const;
+	
+	void SetShieldVisible(bool bVisible);
 
 	UPROPERTY()
 	TArray<FHackRuntimeState> Runtime;
+
+	/** Resolved once in BeginPlay - ShieldMeshReference is a name lookup. */
+	UPROPERTY()
+	TObjectPtr<UMeshComponent> ShieldMesh;
 
 	UPROPERTY()
 	TObjectPtr<ABossCharacter> CachedBoss;
