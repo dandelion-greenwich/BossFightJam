@@ -57,6 +57,9 @@ protected:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Music|Tracks")
 	TMap<EBossPhase, TObjectPtr<USoundBase>> PhaseMusic;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Music|Tracks")
+	TObjectPtr<USoundBase> ShieldDownMusic;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Music|Tracks")
 	TObjectPtr<USoundBase> VictoryMusic;
@@ -108,7 +111,18 @@ private:
 	UFUNCTION()
 	void HandlePhaseChanged(EBossPhase NewPhase);
 
+	UFUNCTION()
+	void HandleShieldStateChanged(EShieldState NewState);
+
 	void BindToBoss(AActor* BossActor);
+
+	/**
+	 * The track the current world state calls for.
+	 */
+	USoundBase* ResolveTrack() const;
+
+	/** Play whatever ResolveTrack now calls for. */
+	void RefreshTrack();
 
 	/** The track for a phase, or null if that phase has no entry. */
 	USoundBase* FindPhaseMusic(EBossPhase Phase) const;

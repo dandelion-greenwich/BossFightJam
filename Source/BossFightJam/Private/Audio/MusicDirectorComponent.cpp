@@ -50,6 +50,7 @@ void UMusicDirectorComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	if (Boss)
 	{
 		Boss->OnPhaseChanged.RemoveDynamic(this, &UMusicDirectorComponent::HandlePhaseChanged);
+		Boss->OnShieldStateChanged.RemoveDynamic(this, &UMusicDirectorComponent::HandleShieldStateChanged);
 	}
 
 	if (ActiveMusic)
@@ -130,18 +131,40 @@ USoundBase* UMusicDirectorComponent::GetCurrentTrack() const
 
 // ------------------------------------------------------------------ Reacting
 
+USoundBase* UMusicDirectorComponent::ResolveTrack() const
+{
+	if (!GameMode || GameMode->GetEncounterState() == EEncounterState::Intro)
+	{
+		return IntroMusic;
+	}
+
+	if (ShieldDownMusic && Boss && Boss->GetShieldState() == EShieldState::Down)
+	{
+		return ShieldDownMusic;
+	}
+
+	// Read off the boss rather than remembered. Phase 1 no longer broadcasts,
+	// so asking is the only way to know where the fight opens.
+	return FindPhaseMusic(Boss ? Boss->GetCurrentPhase() : EBossPhase::Phase1);
+}
+
+void UMusicDirectorComponent::RefreshTrack()
+{
+	if (!GameMode || GameMode->IsEncounterOver())
+	{
+		return;
+	}
+
+	PlayTrack(ResolveTrack(), CrossfadeDuration);
+}
+
 void UMusicDirectorComponent::HandleEncounterStateChanged(EEncounterState NewState)
 {
 	switch (NewState)
 	{
 	case EEncounterState::Intro:
-		PlayTrack(IntroMusic, CrossfadeDuration);
-		break;
-
 	case EEncounterState::Fighting:
-		// Read off the boss rather than remembered. Phase 1 no longer
-		// broadcasts, so asking is the only way to know where the fight opens.
-		PlayTrack(FindPhaseMusic(Boss ? Boss->GetCurrentPhase() : EBossPhase::Phase1), CrossfadeDuration);
+		RefreshTrack();
 		break;
 
 	case EEncounterState::Victory:
@@ -198,22 +221,21 @@ void UMusicDirectorComponent::BindToBoss(AActor* BossActor)
 	}
 
 	Boss->OnPhaseChanged.AddDynamic(this, &UMusicDirectorComponent::HandlePhaseChanged);
+	Boss->OnShieldStateChanged.AddDynamic(this, &UMusicDirectorComponent::HandleShieldStateChanged);
 
-	// Seeded, because phase 1 no longer broadcasts. Without this the fight
-	// would open on whatever was playing and stay there until phase 2.
-	HandlePhaseChanged(Boss->GetCurrentPhase());
+	// Seeded, because phase 1 no longer broadcasts and the shield starts up
+	// silently. Without this the fight would open on whatever was playing.
+	RefreshTrack();
 }
 
 void UMusicDirectorComponent::HandlePhaseChanged(EBossPhase NewPhase)
 {
-	// Ignored outside the fight, so a phase settling during the intro does not
-	// cut the intro track short.
-	if (!GameMode || GameMode->GetEncounterState() != EEncounterState::Fighting)
-	{
-		return;
-	}
+	RefreshTrack();
+}
 
-	PlayTrack(FindPhaseMusic(NewPhase), CrossfadeDuration);
+void UMusicDirectorComponent::HandleShieldStateChanged(EShieldState NewState)
+{
+	RefreshTrack();
 }
 
 USoundBase* UMusicDirectorComponent::FindPhaseMusic(EBossPhase Phase) const
