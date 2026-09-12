@@ -8,6 +8,7 @@
 class UCameraComponent;
 class UMeshComponent;
 class UHackComponent;
+class USoundCue;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAmmoChanged, int32, CurrentAmmo, int32, MagazineSize);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnReloadStarted, float, Duration);
@@ -132,6 +133,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Weapon|Ammo")
 	TSubclassOf<UCameraShakeBase> CameraShakeClass;
+	
+	UPROPERTY(EditAnywhere, Category = "Weapon|Audio")
+	TObjectPtr<USoundCue> FireSound;
 
 	FTimerHandle ReloadTimer;
 

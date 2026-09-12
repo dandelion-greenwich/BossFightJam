@@ -5,6 +5,7 @@
 #include "HackComponent.h"
 #include "DeadSignalGameMode.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundCue.h"
 #include "Camera/CameraComponent.h"
 #include "Components/MeshComponent.h"
 #include "Engine/World.h"
@@ -135,6 +136,9 @@ bool UWeaponComponent::Fire()
 
 	--CurrentAmmo;
 	OnAmmoChanged.Broadcast(CurrentAmmo, MagazineSize);
+	
+	UGameplayStatics::PlaySound2D(this, FireSound, 1.f, 1.f, 0.f,
+		/*ConcurrencySettings=*/nullptr, /*OwningActor=*/nullptr, /*bIsUISound=*/false);
 
 	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
 
