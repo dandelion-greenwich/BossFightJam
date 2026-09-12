@@ -138,7 +138,7 @@ bool UWeaponComponent::Fire()
 	OnAmmoChanged.Broadcast(CurrentAmmo, MagazineSize);
 	
 	UGameplayStatics::PlaySound2D(this, FireSound, 1.f, 1.f, 0.f,
-		/*ConcurrencySettings=*/nullptr, /*OwningActor=*/nullptr, /*bIsUISound=*/false);
+ 		nullptr,nullptr, false);
 
 	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
 

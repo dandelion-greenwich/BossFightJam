@@ -436,4 +436,9 @@ private:
 	FTimerHandle TransitionTimer;
 	FTimerHandle StunTimer;
 	FTimerHandle AttackTimer;
+
+	UPROPERTY(EditAnywhere, Category = "Boss|Shield")
+	TObjectPtr<USoundBase> HitShieldUp;
+	UPROPERTY(EditAnywhere, Category = "Boss|Shield")
+	TObjectPtr<USoundBase> HitShieldDown;
 };

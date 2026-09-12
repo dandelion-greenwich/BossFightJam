@@ -259,6 +259,15 @@ void ABossCharacter::EndTransition()
 
 float ABossCharacter::ReceiveShot_Implementation(float Damage, AActor* DamageInstigator, const FHitResult& Hit)
 {
+	if (ShieldState == EShieldState::Up)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, HitShieldUp, Hit.ImpactPoint);
+	}
+	else
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, HitShieldDown, Hit.ImpactPoint);
+	}
+	
 	return Health ? Health->ApplyDamage(Damage, DamageInstigator) : 0.f;
 }
 
