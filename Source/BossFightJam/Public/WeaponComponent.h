@@ -130,6 +130,9 @@ private:
 
 	bool bIsReloading = false;
 
+	UPROPERTY(EditAnywhere, Category = "Weapon|Ammo")
+	TSubclassOf<UCameraShakeBase> CameraShakeClass;
+
 	FTimerHandle ReloadTimer;
 
 	void FinishReload();

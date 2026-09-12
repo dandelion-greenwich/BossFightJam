@@ -136,6 +136,13 @@ bool UWeaponComponent::Fire()
 	--CurrentAmmo;
 	OnAmmoChanged.Broadcast(CurrentAmmo, MagazineSize);
 
+	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+
+	if (PC && PC->PlayerCameraManager)
+	{
+		PC->PlayerCameraManager->StartCameraShake(CameraShakeClass, 1.0f);
+	}
+
 	// From the camera, not the muzzle - what the crosshair covers is what gets hit.
 	const FVector Start = Camera->GetComponentLocation();
 	const FVector End = Start + Camera->GetForwardVector() * Range;
