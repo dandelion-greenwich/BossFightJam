@@ -452,12 +452,15 @@ private:
 	FTimerHandle StunTimer;
 	FTimerHandle AttackTimer;
 
-	UPROPERTY(EditAnywhere, Category = "Boss|Shield")
+	UPROPERTY(EditAnywhere, Category = "Boss|Audio")
 	TObjectPtr<USoundBase> HitShieldUpSound;
 	
-	UPROPERTY(EditAnywhere, Category = "Boss|Shield")
+	UPROPERTY(EditAnywhere, Category = "Boss|Audio")
 	TObjectPtr<USoundBase> HitShieldDownSound;
 
-	UPROPERTY(EditAnywhere, Category = "Boss|Shield")
+	UPROPERTY(EditAnywhere, Category = "Boss|Audio")
 	TObjectPtr<USoundBase> ShieldUpSound;
+
+	UPROPERTY(EditAnywhere, Category = "Boss|Audio")
+	TObjectPtr<USoundBase> StunSound;
 };

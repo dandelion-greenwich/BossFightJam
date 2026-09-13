@@ -155,6 +155,7 @@ void ABossCharacter::ApplyStun(float Duration)
 		bStunned = true;
 		OnStunChanged.Broadcast(true);
 		OnStunStarted();
+		UGameplayStatics::SpawnSoundAttached(StunSound, GetRootComponent());
 	}
 
 	// Cancel whatever was pending. Without this a stun landing mid-telegraph

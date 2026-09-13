@@ -114,6 +114,8 @@ bool UWeaponComponent::Fire()
 {
 	if (!CanFire())
 	{
+		UGameplayStatics::PlaySound2D(this, DryFireSound, 1.f, 1.f, 0.f,
+	 nullptr,nullptr, false);
 		return false;
 	}
 

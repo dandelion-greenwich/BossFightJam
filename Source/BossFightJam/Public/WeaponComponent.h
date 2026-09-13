@@ -136,6 +136,9 @@ private:
 	
 	UPROPERTY(EditAnywhere, Category = "Weapon|Audio")
 	TObjectPtr<USoundCue> FireSound;
+	
+	UPROPERTY(EditAnywhere, Category = "Weapon|Audio")
+	TObjectPtr<USoundCue> DryFireSound;
 
 	FTimerHandle ReloadTimer;
 
