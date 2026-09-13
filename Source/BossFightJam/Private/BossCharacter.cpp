@@ -94,7 +94,7 @@ void ABossCharacter::DropShield(float Duration)
 	SetShieldState(EShieldState::Down);
 	
 	if (Mesh)
-		Mesh -> SetMaterial(1, InvisibleMaterial);
+		Mesh -> SetMaterial(0, InvisibleMaterial);
 }
 
 void ABossCharacter::RestoreShield()
@@ -103,7 +103,7 @@ void ABossCharacter::RestoreShield()
 	SetShieldState(EShieldState::Up);
 
 	if (Mesh)
-		Mesh ->SetMaterial(1, ShieldMaterial);
+		Mesh ->SetMaterial(0, ShieldMaterial);
 
 	UGameplayStatics::SpawnSoundAttached(ShieldUpSound, GetRootComponent());
 }
@@ -153,6 +153,13 @@ void ABossCharacter::ApplyStun(float Duration)
 	if (!bStunned)
 	{
 		bStunned = true;
+
+		if (Mesh)
+		{
+			// Pauses anim asset
+			Mesh->bPauseAnims = true;
+		}
+
 		OnStunChanged.Broadcast(true);
 		OnStunStarted();
 		UGameplayStatics::SpawnSoundAttached(StunSound, GetRootComponent());
@@ -188,6 +195,13 @@ void ABossCharacter::EndStun()
 	}
 
 	bStunned = false;
+
+	if (Mesh)
+	{
+		// Unpauses anim asset
+		Mesh->bPauseAnims = false;
+	}
+
 	OnStunChanged.Broadcast(false);
 	OnStunEnded();
 
