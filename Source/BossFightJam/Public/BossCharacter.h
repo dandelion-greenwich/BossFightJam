@@ -438,7 +438,11 @@ private:
 	FTimerHandle AttackTimer;
 
 	UPROPERTY(EditAnywhere, Category = "Boss|Shield")
-	TObjectPtr<USoundBase> HitShieldUp;
+	TObjectPtr<USoundBase> HitShieldUpSound;
+	
 	UPROPERTY(EditAnywhere, Category = "Boss|Shield")
-	TObjectPtr<USoundBase> HitShieldDown;
+	TObjectPtr<USoundBase> HitShieldDownSound;
+
+	UPROPERTY(EditAnywhere, Category = "Boss|Shield")
+	TObjectPtr<USoundBase> ShieldUpSound;
 };

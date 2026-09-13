@@ -58,6 +58,9 @@ void UHackComponent::OpenPanel()
 	ClearInput();
 	RegeneratePatterns();
 
+	UGameplayStatics::PlaySound2D(this, OpenHackSound, 1.f, 1.f, 0.f,
+	 nullptr,nullptr, false);
+
 	OnPanelToggled.Broadcast(true);
 }
 
@@ -70,6 +73,9 @@ void UHackComponent::ClosePanel()
 
 	bPanelOpen = false;
 	ClearInput();
+
+	UGameplayStatics::PlaySound2D(this, CloseHackSound, 1.f, 1.f, 0.f,
+ nullptr,nullptr, false);
 
 	OnPanelToggled.Broadcast(false);
 }
@@ -193,6 +199,9 @@ void UHackComponent::SubmitKey(int32 Key)
 		ActivateHack(ExactMatch);
 		return;
 	}
+
+	UGameplayStatics::PlaySound2D(this, TypingSound, 1.f, 1.f, 0.f,
+ nullptr,nullptr, false);
 
 	OnInputChanged.Broadcast();
 }
@@ -360,6 +369,8 @@ void UHackComponent::ApplyHackEffect(const FHackDefinition& Hack)
 			Health->SetInvulnerable(true);
 		}
 
+		UGameplayStatics::PlaySound2D(this, ShieldUpSound, 1.f, 1.f, 0.f,
+nullptr,nullptr, false);
 		SetShieldVisible(true);
 		break;
 	}

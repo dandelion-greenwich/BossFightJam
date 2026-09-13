@@ -146,6 +146,18 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hacks|Shield")
 	TObjectPtr<UMaterialInterface> InvisibleMaterial;
 
+	UPROPERTY(EditAnywhere, Category = "Hacks|Audio")
+	TObjectPtr<USoundBase> TypingSound;
+
+	UPROPERTY(EditAnywhere, Category = "Hacks|Audio")
+	TObjectPtr<USoundBase> OpenHackSound;
+
+	UPROPERTY(EditAnywhere, Category = "Hacks|Audio")
+	TObjectPtr<USoundBase> CloseHackSound;
+
+	UPROPERTY(EditAnywhere, Category = "Hacks|Audio")
+	TObjectPtr<USoundBase> ShieldUpSound;
+
 private:
 	void RegeneratePatterns();
 	void ActivateHack(int32 Index);

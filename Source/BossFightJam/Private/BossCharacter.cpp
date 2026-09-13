@@ -94,6 +94,8 @@ void ABossCharacter::RestoreShield()
 
 	if (Mesh)
 		Mesh ->SetMaterial(1, ShieldMaterial);
+
+	UGameplayStatics::SpawnSoundAttached(ShieldUpSound, GetRootComponent());
 }
 
 void ABossCharacter::SetShieldState(EShieldState NewState)
@@ -261,11 +263,11 @@ float ABossCharacter::ReceiveShot_Implementation(float Damage, AActor* DamageIns
 {
 	if (ShieldState == EShieldState::Up)
 	{
-		UGameplayStatics::PlaySoundAtLocation(this, HitShieldUp, Hit.ImpactPoint);
+		UGameplayStatics::PlaySoundAtLocation(this, HitShieldUpSound, Hit.ImpactPoint);
 	}
 	else
 	{
-		UGameplayStatics::PlaySoundAtLocation(this, HitShieldDown, Hit.ImpactPoint);
+		UGameplayStatics::PlaySoundAtLocation(this, HitShieldDownSound, Hit.ImpactPoint);
 	}
 	
 	return Health ? Health->ApplyDamage(Damage, DamageInstigator) : 0.f;
