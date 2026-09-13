@@ -7,7 +7,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundCue.h"
 #include "Camera/CameraComponent.h"
-#include "Components/MeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Animation/AnimSequence.h"
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 
@@ -38,7 +39,7 @@ void UWeaponComponent::BeginPlay()
 	}
 
 	// Resolved once here rather than per shot - the reference is a name lookup.
-	GunMesh = Cast<UMeshComponent>(GunMeshReference.GetComponent(Owner));
+	GunMesh = Cast<USkeletalMeshComponent>(GunMeshReference.GetComponent(Owner));
 
 	HackComponent = Owner->FindComponentByClass<UHackComponent>();
 
@@ -142,6 +143,11 @@ bool UWeaponComponent::Fire()
 	UGameplayStatics::PlaySound2D(this, FireSound, 1.f, 1.f, 0.f,
  		nullptr,nullptr, false);
 
+	if (GunMesh && FireSequence)
+	{
+		GunMesh->PlayAnimation(FireSequence, false);
+	}
+
 	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
 
 	if (PC && PC->PlayerCameraManager)
@@ -213,6 +219,12 @@ bool UWeaponComponent::Reload()
 	}
 
 	bIsReloading = true;
+
+	if (GunMesh && ReloadSequence)
+	{
+		GunMesh->PlayAnimation(ReloadSequence, /*bLooping=*/false);
+	}
+
 	OnReloadStarted.Broadcast(ReloadDuration);
 
 	// A zero duration would never fire a timer, so finish immediately instead.

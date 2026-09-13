@@ -16,7 +16,7 @@ ABossCharacter::ABossCharacter()
 	// Ticks for facing player and laser sweep,  everything else runs on timers.
 	PrimaryActorTick.bCanEverTick = true;
 	
-	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
+	Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Mesh"));
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	RootComponent = Mesh;

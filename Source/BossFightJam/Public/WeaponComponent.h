@@ -6,7 +6,8 @@
 #include "WeaponComponent.generated.h"
 
 class UCameraComponent;
-class UMeshComponent;
+class USkeletalMeshComponent;
+class UAnimSequence;
 class UHackComponent;
 class USoundCue;
 
@@ -75,8 +76,14 @@ protected:
 	virtual void BeginPlay() override;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Setup",
-		meta = (UseComponentPicker, AllowedClasses = "/Script/Engine.MeshComponent"))
+		meta = (UseComponentPicker, AllowedClasses = "/Script/Engine.SkeletalMeshComponent"))
 	FComponentReference GunMeshReference;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Animation")
+	TObjectPtr<UAnimSequence> FireSequence;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Animation")
+	TObjectPtr<UAnimSequence> ReloadSequence;
 
 	// Socket on the gun mesh that muzzle FX originate from.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
@@ -118,7 +125,7 @@ private:
 	UPROPERTY()
 	TObjectPtr<UCameraComponent> Camera;
 	UPROPERTY()
-	TObjectPtr<UMeshComponent> GunMesh;
+	TObjectPtr<USkeletalMeshComponent> GunMesh;
 
 	UPROPERTY()
 	TObjectPtr<UHackComponent> HackComponent;
