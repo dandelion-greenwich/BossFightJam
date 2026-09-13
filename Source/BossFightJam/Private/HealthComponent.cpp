@@ -1,5 +1,7 @@
 #include "HealthComponent.h"
 
+#include "Kismet/GameplayStatics.h"
+
 UHealthComponent::UHealthComponent()
 {
 	// Nothing here needs to tick - everything is event driven.
@@ -71,6 +73,11 @@ float UHealthComponent::Heal(float Amount)
 		return 0.f;
 	}
 
+	if (HealSound)
+	{
+		UGameplayStatics::PlaySound2D(this, HealSound, 1.f, 1.f, 0.f,
+nullptr,nullptr, false);	
+	}
 	CurrentHealth += Restored;
 	OnHealthChanged.Broadcast(CurrentHealth, MaxHealth);
 

@@ -87,6 +87,9 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Health")
 	FOnDeath OnDeath;
 
+	UPROPERTY(EditAnywhere, Category = "Health|Audio")
+	TObjectPtr<USoundBase> HealSound;
+
 protected:
 	virtual void BeginPlay() override;
 

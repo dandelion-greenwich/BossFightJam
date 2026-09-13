@@ -828,7 +828,7 @@ void ABossCharacter::BeginTeleportAttack()
 	// Spread evenly across the step, so raising Intensity makes the boss blink
 	// faster within the same window rather than needing a second field.
 	TeleportInterval = PatternStep.Duration / FMath::Max(TeleportsRemaining, 1);
-
+	
 	// The first one lands immediately; Duration paces the rest.
 	DoTeleport();
 }
@@ -864,6 +864,8 @@ void ABossCharacter::DoTeleport()
 		StopTeleportAttack();
 		return;
 	}
+
+	UGameplayStatics::PlaySoundAtLocation(this, TeleportSound, GetActorLocation());
 
 	const int32 ChosenIndex = Candidates[FMath::RandRange(0, Candidates.Num() - 1)];
 

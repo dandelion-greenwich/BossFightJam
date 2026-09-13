@@ -463,4 +463,7 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Boss|Audio")
 	TObjectPtr<USoundBase> StunSound;
+	
+	UPROPERTY(EditAnywhere, Category = "Boss|Audio")
+	TObjectPtr<USoundBase> TeleportSound;
 };
