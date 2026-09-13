@@ -8,6 +8,7 @@
 class UCameraComponent;
 class USkeletalMeshComponent;
 class UAnimSequence;
+class UNiagaraSystem;
 class UHackComponent;
 class USoundCue;
 
@@ -85,9 +86,12 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Animation")
 	TObjectPtr<UAnimSequence> ReloadSequence;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|FX")
+	TObjectPtr<UNiagaraSystem> MuzzleFlash;
+
 	// Socket on the gun mesh that muzzle FX originate from.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	FName MuzzleSocketName = TEXT("Muzzle");
+	FName MuzzleSocketName = TEXT("MuzzleSocket");
 
 	// Everything visual - muzzle flash, tracer, impact decal, recoil, sound.
 	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon")

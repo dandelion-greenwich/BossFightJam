@@ -9,6 +9,8 @@
 #include "Camera/CameraComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Animation/AnimSequence.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 
@@ -146,6 +148,13 @@ bool UWeaponComponent::Fire()
 	if (GunMesh && FireSequence)
 	{
 		GunMesh->PlayAnimation(FireSequence, false);
+	}
+
+	if (GunMesh && MuzzleFlash)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAttached(MuzzleFlash, GunMesh, MuzzleSocketName,
+			FVector::ZeroVector, FRotator::ZeroRotator, EAttachLocation::SnapToTarget,
+			false, true, ENCPoolMethod::AutoRelease);
 	}
 
 	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
