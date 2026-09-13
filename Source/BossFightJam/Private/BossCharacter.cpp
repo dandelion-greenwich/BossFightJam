@@ -9,6 +9,7 @@
 #include "ProjectileBase.h"
 #include "ProjectilePoolSubsystem.h"
 #include "DrawDebugHelpers.h"
+#include "NiagaraComponent.h"
 
 ABossCharacter::ABossCharacter()
 {
@@ -27,6 +28,15 @@ ABossCharacter::ABossCharacter()
 
 	// For weapon detection
 	Capsule->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+
+	LaserStart = CreateDefaultSubobject<USceneComponent>(TEXT("LaserStart"));
+	LaserStart->SetupAttachment(Mesh);
+
+	LaserBeam = CreateDefaultSubobject<UNiagaraComponent>(TEXT("LaserBeam"));
+	LaserBeam->SetupAttachment(LaserStart);
+
+	// Off until a sweep starts, or the beam would fire the moment the level loads.
+	LaserBeam->SetAutoActivate(false);
 
 	Health = CreateDefaultSubobject<UHealthComponent>(TEXT("Health"));
 }
@@ -654,13 +664,15 @@ void ABossCharacter::BeginLaserSweep()
 
 	// Captured now and then fixed. The beam does not track, so the sweep is
 	// dodgeable - but each new sweep re-captures, so standing still is not.
+	const FVector Start = GetLaserStartLocation();
+
 	LaserYaw = GetActorRotation().Yaw;
 
 	if (const APlayerController* PC = World->GetFirstPlayerController())
 	{
 		if (const APawn* Player = PC->GetPawn())
 		{
-			LaserYaw = (Player->GetActorLocation() - GetActorLocation()).Rotation().Yaw;
+			LaserYaw = (Player->GetActorLocation() - Start).Rotation().Yaw;
 		}
 	}
 
@@ -670,6 +682,15 @@ void ABossCharacter::BeginLaserSweep()
 
 	LaserSweepEndTime = World->GetTimeSeconds() + FMath::Max(PatternStep.LaserDuration, 0.1f);
 	bLaserActive = true;
+
+	if (LaserBeam)
+	{
+		// Collapsed onto the start BEFORE activating
+		LaserBeam->SetVariableVec3(BeamEndParameter, Start);
+
+		// Reset so every sweep starts clean rather than inheriting the last one's particles.
+		LaserBeam->Activate(true);
+	}
 
 	OnLaserStarted();
 }
@@ -682,7 +703,17 @@ void ABossCharacter::StopLaserSweep()
 		OnLaserFinished();
 	}
 	
+	if (LaserBeam)
+	{
+		LaserBeam->Deactivate();
+	}
+
 	GetWorldTimerManager().ClearTimer(LaserIntervalTimer);
+}
+
+FVector ABossCharacter::GetLaserStartLocation() const
+{
+	return LaserStart ? LaserStart->GetComponentLocation() : GetActorLocation();
 }
 
 void ABossCharacter::TickLaserSweep(float DeltaTime)
@@ -698,6 +729,12 @@ void ABossCharacter::TickLaserSweep(float DeltaTime)
 	if (Now >= LaserSweepEndTime)
 	{
 		bLaserActive = false;
+
+		if (LaserBeam)
+		{
+			LaserBeam->Deactivate();
+		}
+
 		OnLaserFinished();
 
 		// Another sweep if the step still has time, re-capturing the player.
@@ -715,7 +752,7 @@ void ABossCharacter::TickLaserSweep(float DeltaTime)
 	LaserPitch = FMath::Clamp(LaserPitch, -90.f, 89.f);
 
 	const FRotator Direction(LaserPitch, LaserYaw, 0.f);
-	const FVector Start = GetActorLocation();
+	const FVector Start = GetLaserStartLocation();
 	FVector End = Start + Direction.Vector() * PatternStep.LaserRange;
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(BossLaser), /*bTraceComplex=*/false);
@@ -726,6 +763,14 @@ void ABossCharacter::TickLaserSweep(float DeltaTime)
 	if (World->LineTraceSingleByChannel(GeometryHit, Start, End, ECC_Visibility, Params))
 	{
 		End = GeometryHit.ImpactPoint;
+	}
+
+	if (LaserBeam)
+	{
+		// Every frame, not only on a hit: End is the impact point when something
+		// blocked the trace and the full range when nothing did. Updating only on
+		// hits would freeze the beam at its last contact once it swept past an edge.
+		LaserBeam->SetVariableVec3(BeamEndParameter, End);
 	}
 
 	FHitResult PawnHit;

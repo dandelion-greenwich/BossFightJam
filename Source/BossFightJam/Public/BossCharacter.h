@@ -10,6 +10,7 @@
 class UCapsuleComponent;
 class USkeletalMeshComponent;
 class UHealthComponent;
+class UNiagaraComponent;
 class AProjectileBase;
 
 
@@ -309,6 +310,17 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Boss")
 	TObjectPtr<UStaticMeshComponent> Mesh;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Boss")
+	TObjectPtr<USceneComponent> LaserStart;
+
+	/** Attached to LaserStart, so the effect always originates where the trace does. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Boss")
+	TObjectPtr<UNiagaraComponent> LaserBeam;
+
+	/** Niagara user parameter that receives the beam's end point each frame. */
+	UPROPERTY(EditDefaultsOnly, Category = "Boss|Visuals")
+	FName BeamEndParameter = TEXT("Beam End");
 
 	UPROPERTY(EditAnywhere, Category = "Boss|Visuals")
 	TObjectPtr<UMaterialInterface> ShieldMaterial;
@@ -379,6 +391,9 @@ private:
 
 	/** Advances the beam, traces it, and damages anything it touches. */
 	void TickLaserSweep(float DeltaTime);
+
+	/** LaserStart's location, or the actor's if the component is missing. */
+	FVector GetLaserStartLocation() const;
 
 	void StopLaserSweep();
 
