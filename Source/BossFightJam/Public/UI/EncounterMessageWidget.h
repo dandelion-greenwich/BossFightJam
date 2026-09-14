@@ -7,6 +7,22 @@
 #include "EncounterMessageWidget.generated.h"
 
 class ABossCharacter;
+class UAudioComponent;
+class USoundBase;
+
+USTRUCT(BlueprintType)
+struct FDialogueLine
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Dialogue", meta = (MultiLine = true))
+	FText Text;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Dialogue")
+	TObjectPtr<USoundBase> Voice;
+
+	bool IsEmpty() const { return Text.IsEmpty() && !Voice; }
+};
 
 /**
  * A typewriter that announces the fight.
@@ -25,15 +41,15 @@ protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
 
-	/** Typed when the fight opens. */
-	UPROPERTY(EditDefaultsOnly, Category = "Encounter Message", meta = (MultiLine = true))
-	FText IntroMessage;
-	
-	UPROPERTY(EditDefaultsOnly, Category = "Encounter Message", meta = (MultiLine = true))
-	FText Phase2Message;
+	/** Played when the fight opens. */
+	UPROPERTY(EditDefaultsOnly, Category = "Encounter Message")
+	FDialogueLine IntroLine;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Encounter Message", meta = (MultiLine = true))
-	FText Phase3Message;
+	UPROPERTY(EditDefaultsOnly, Category = "Encounter Message")
+	FDialogueLine Phase2Line;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Encounter Message")
+	FDialogueLine Phase3Line;
 
 private:
 	UFUNCTION()
@@ -47,8 +63,17 @@ private:
 
 	void BindToBoss(AActor* BossActor);
 
+	/** Types the text and starts the voice, cutting off whatever line was playing. */
+	void PlayLine(const FDialogueLine& Line);
+
+	void StopVoice();
+
 	UPROPERTY(Transient)
 	TObjectPtr<ADeadSignalGameMode> GameMode;
+
+	/** The voice currently speaking, kept so an interrupting line can stop it. */
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> ActiveVoice;
 
 	UPROPERTY(Transient)
 	TObjectPtr<ABossCharacter> Boss;

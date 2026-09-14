@@ -1,7 +1,9 @@
 #include "UI/EncounterMessageWidget.h"
 
 #include "BossCharacter.h"
+#include "Components/AudioComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 
 void UEncounterMessageWidget::NativeConstruct()
 {
@@ -39,6 +41,9 @@ void UEncounterMessageWidget::NativeDestruct()
 		Boss->OnPhaseChanged.RemoveDynamic(this, &UEncounterMessageWidget::HandlePhaseChanged);
 	}
 
+	// Otherwise a line cut off by a restart keeps talking over the reloaded level.
+	StopVoice();
+
 	Super::NativeDestruct();
 }
 
@@ -52,10 +57,7 @@ void UEncounterMessageWidget::HandleEncounterStateChanged(EEncounterState NewSta
 
 	bIntroPlayed = true;
 
-	if (!IntroMessage.IsEmpty())
-	{
-		PlayMessage(IntroMessage);
-	}
+	PlayLine(IntroLine);
 }
 
 void UEncounterMessageWidget::HandleBossRegistered(AActor* BossActor)
@@ -90,28 +92,67 @@ void UEncounterMessageWidget::BindToBoss(AActor* BossActor)
 
 void UEncounterMessageWidget::HandlePhaseChanged(EBossPhase NewPhase)
 {
-	const FText* Message = nullptr;
+	const FDialogueLine* Line = nullptr;
 
 	switch (NewPhase)
 	{
 	case EBossPhase::Phase2:
-		Message = &Phase2Message;
+		Line = &Phase2Line;
 		break;
 
 	case EBossPhase::Phase3:
-		Message = &Phase3Message;
+		Line = &Phase3Line;
 		break;
 
 	default:
 		break;
 	}
 
-	if (!Message || Message->IsEmpty())
+	if (!Line || Line->IsEmpty())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[Message] Nothing to type for %s - its message is empty."),
+		UE_LOG(LogTemp, Warning, TEXT("[Message] Nothing to play for %s - its line has no text or voice."),
 			*UEnum::GetValueAsString(NewPhase));
 		return;
 	}
 
-	PlayMessage(*Message);
+	PlayLine(*Line);
+}
+
+void UEncounterMessageWidget::PlayLine(const FDialogueLine& Line)
+{
+	if (Line.IsEmpty())
+	{
+		return;
+	}
+
+	// The new line replaces the old one entirely - text and voice together - so
+	// an interrupted voice cannot keep talking under different words.
+	StopVoice();
+
+	PlayMessage(Line.Text);
+
+	if (!Line.Voice)
+	{
+		return;
+	}
+
+	ActiveVoice = UGameplayStatics::CreateSound2D(this, Line.Voice, 1.f, 1.f, 0.f,
+		nullptr, false,true);
+
+	if (ActiveVoice)
+	{
+		// CreateSound2D flags sounds as UI, which keeps them playing through a pause
+		// The typing timer freezes on pause
+		ActiveVoice->bIsUISound = false;
+		ActiveVoice->Play();
+	}
+}
+
+void UEncounterMessageWidget::StopVoice()
+{
+	if (ActiveVoice)
+	{
+		ActiveVoice->Stop();
+		ActiveVoice = nullptr;
+	}
 }
