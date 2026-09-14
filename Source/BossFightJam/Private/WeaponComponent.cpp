@@ -234,6 +234,12 @@ bool UWeaponComponent::Reload()
 		GunMesh->PlayAnimation(ReloadSequence, /*bLooping=*/false);
 	}
 
+	if (ReloadSound)
+	{
+		UGameplayStatics::PlaySound2D(this, ReloadSound, 1.f, 1.f, 0.f,
+nullptr,nullptr, false);
+	}
+
 	OnReloadStarted.Broadcast(ReloadDuration);
 
 	// A zero duration would never fire a timer, so finish immediately instead.
