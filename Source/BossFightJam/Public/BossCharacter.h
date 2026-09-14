@@ -463,6 +463,16 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Boss|Audio")
 	TObjectPtr<USoundBase> StunSound;
+
+	/** Laser sweep sounds, picked by the sweep's LaserDuration. */
+	UPROPERTY(EditAnywhere, Category = "Boss|Audio")
+	TObjectPtr<USoundBase> Laser1s;
+
+	UPROPERTY(EditAnywhere, Category = "Boss|Audio")
+	TObjectPtr<USoundBase> Laser075s;
+
+	UPROPERTY(EditAnywhere, Category = "Boss|Audio")
+	TObjectPtr<USoundBase> Laser05s;
 	
 	UPROPERTY(EditAnywhere, Category = "Boss|Audio")
 	TObjectPtr<USoundBase> TeleportSound;

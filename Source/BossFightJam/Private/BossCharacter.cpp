@@ -707,6 +707,27 @@ void ABossCharacter::BeginLaserSweep()
 		LaserBeam->Activate(true);
 	}
 
+	const float SweepDuration = PatternStep.LaserDuration;
+	USoundBase* LaserSound = nullptr;
+
+	if (SweepDuration >= 1.f)
+	{
+		LaserSound = Laser1s;
+	}
+	else if (SweepDuration >= 0.75f)
+	{
+		LaserSound = Laser075s;
+	}
+	else if (SweepDuration >= 0.5f)
+	{
+		LaserSound = Laser05s;
+	}
+
+	if (LaserSound)
+	{
+		UGameplayStatics::SpawnSoundAttached(LaserSound, LaserStart ? LaserStart.Get() : GetRootComponent());
+	}
+
 	OnLaserStarted();
 }
 
